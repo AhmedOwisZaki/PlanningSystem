@@ -1,0 +1,217 @@
+﻿<div class="gantt-container" (wheel)="onWheel($event)" (wheel)="onWheel($event)">
+    <!-- Controls Area -->
+    <!-- Main Split Chart -->
+    <div class="gantt-body">
+        <!-- Left Panel: Task List -->
+        <div class="task-list-panel">
+            <div class="task-list-header" [style.height.px]="headerHeight">
+                <div class="col-name">
+                    Activity Name
+                    <div class="header-controls">
+                        <button class="mini-btn" (click)="handleZoom(100)" title="Zoom Out">-</button>
+                        <button class="mini-btn" (click)="handleZoom(-100)" title="Zoom In">+</button>
+                    </div>
+                </div>
+                <div class="col-date">Start</div>
+                <div class="col-dur">Dur.</div>
+            </div>
+            <div class="task-list-rows" (scroll)="onTaskListScroll($event)">
+                <div class="task-row" *ngFor="let activity of visibleActivities()" [style.height.px]="rowHeight"
+                    [style.background-color]="getPhaseColor(activity)" [class.root-project]="activity.id === 0">
+                    <div class="col-name" [style.padding-left.px]="getActivityLevel(activity) * 40"><span
+                            class="expand-icon" *ngIf="isParentActivity(activity)"
+                            (click)="toggleActivity(activity, $event)">{{ activity.isExpanded ? "-" : "+" }}</span><span
+                            [class.parent-activity]="isParentActivity(activity)">{{ activity.name }}</span></div>
+                    <div class="col-date">{{ activity.startDate | date:'shortDate' }}</div>
+                    <div class="col-dur">{{ activity.duration }}d</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Timelne -->
+        <div class="timeline-panel" (scroll)="onTimelineScroll($event)">
+            <!-- Timeline Scroller -->
+            <div class="timeline-scroll-area" [style.width.px]="timelineWidth()">
+                <!-- Scale Header -->
+                <div class="timeline-scale">
+                    <!-- Month/Year Row -->
+                    <div class="month-row">
+                        <div class="month-cell" *ngFor="let month of months()"
+                            [style.width.px]="month.dayCount * dayWidth * zoomLevel()">
+                            {{ month.date | date:'MMM yyyy' }}
+                        </div>
+                    </div>
+                    <!-- Day Row -->
+                    <div class="day-row">
+                        <div class="scale-cell" *ngFor="let day of days()" [style.width.px]="dayWidth * zoomLevel()">
+                            {{ day | date:'d' }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Timeline Grid/Rows -->
+                <div class="timeline-grid">
+                    <!-- Background Grid Lines -->
+                    <div class="grid-background" [style.height.px]="visibleActivities().length * rowHeight">
+                        <div class="grid-col" *ngFor="let day of days()" [style.width.px]="dayWidth * zoomLevel()">
+                        </div>
+                    </div>
+
+                    <!-- Dependency Lines SVG -->
+                    <svg class="dependency-lines-container" [style.height.px]="visibleActivities().length * rowHeight"
+                        [style.width.px]="timelineWidth()">
+                        <!-- Existing Links -->
+                        <path *ngFor="let link of dependencyLines()" [attr.d]="link.path" fill="none"
+                            class="link-path" />
+
+                        <!-- Creating Link (Temp Line) -->
+                        <line *ngIf="isLinking && tempLinkEnd" [attr.x1]="tempLinkStart.x" [attr.y1]="tempLinkStart.y"
+                            [attr.x2]="tempLinkEnd.x" [attr.y2]="tempLinkEnd.y" class="link-drag-line" />
+                    </svg>
+
+                    <!-- Task Bars -->
+                    <div class="task-bars-container">
+                        <!-- Dependency Lines SVG -->
+                        <svg class="dependency-lines-container"
+                            [style.height.px]="visibleActivities().length * rowHeight"
+                            [style.width.px]="timelineWidth()">
+                            <!-- Arrow Markers -->
+                            <defs>
+                                <!-- Start Circle Markers -->
+                                <marker id="circleFS" markerWidth="6" markerHeight="6" refX="3" refY="3">
+                                    <circle cx="3" cy="3" r="3" fill="#339af0" />
+                                </marker>
+                                <marker id="circleFF" markerWidth="6" markerHeight="6" refX="3" refY="3">
+                                    <circle cx="3" cy="3" r="3" fill="#51cf66" />
+                                </marker>
+                                <marker id="circleSS" markerWidth="6" markerHeight="6" refX="3" refY="3">
+                                    <circle cx="3" cy="3" r="3" fill="#ff6b6b" />
+                                </marker>
+                                <marker id="circleSF" markerWidth="6" markerHeight="6" refX="3" refY="3">
+                                    <circle cx="3" cy="3" r="3" fill="#fcc419" />
+                                </marker>
+
+                                <!-- End Arrow Markers -->
+                                <marker id="arrowFS" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"
+                                    markerUnits="strokeWidth">
+                                    <path d="M0,0 L0,6 L9,3 z" fill="#339af0" />
+                                </marker>
+                                <marker id="arrowFF" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"
+                                    markerUnits="strokeWidth">
+                                    <path d="M0,0 L0,6 L9,3 z" fill="#51cf66" />
+                                </marker>
+                                <marker id="arrowSS" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"
+                                    markerUnits="strokeWidth">
+                                    <path d="M0,0 L0,6 L9,3 z" fill="#ff6b6b" />
+                                </marker>
+                                <marker id="arrowSF" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"
+                                    markerUnits="strokeWidth">
+                                    <path d="M0,0 L0,6 L9,3 z" fill="#fcc419" />
+                                </marker>
+                            </defs>
+                            <!-- Existing Links -->
+                            <!-- Existing Links -->
+                            <path *ngFor="let link of dependencyLines()" [attr.d]="link.path" [attr.stroke]="link.color"
+                                [attr.marker-start]="'url(#circle' + link.type + ')'"
+                                [attr.marker-end]="'url(#arrow' + link.type + ')'" fill="none" class="link-path"
+                                (click)="onLinkClick(link.id)" [attr.data-link-id]="link.id" [attr.title]="link.type" />
+
+                            <!-- Creating Link (Temp Line) -->
+                            <line *ngIf="isLinking && tempLinkEnd" [attr.x1]="tempLinkStart.x"
+                                [attr.y1]="tempLinkStart.y" [attr.x2]="tempLinkEnd.x" [attr.y2]="tempLinkEnd.y"
+                                class="link-drag-line" />
+                        </svg>
+
+                        <div class="task-bar-wrapper" *ngFor="let activity of visibleActivities(); let i = index"
+                            [style.top.px]="i * rowHeight" [style.height.px]="rowHeight">
+
+                            <div class="task-bar" [class.parent-task-bar]="isParentActivity(activity)"
+                                (mousedown)="onTaskMouseDown($event, activity)"
+                                (click)="selectActivity(activity, $event)" (dblclick)="openEditModal(activity)"
+                                [style.left.px]="getTaskLeft(activity.startDate)"
+                                [style.width.px]="getTaskWidth(activity.duration)">
+
+                                <!-- Resize Handles -->
+                                <div class="resize-handle resize-left"
+                                    (mousedown)="onResizeMouseDown($event, activity, 'left')"></div>
+                                <div class="resize-handle resize-right"
+                                    (mousedown)="onResizeMouseDown($event, activity, 'right')"></div>
+
+                                <!-- Link Handles -->
+                                <div class="link-handle handle-left" [attr.data-id]="activity.id" data-type="start"
+                                    (mousedown)="onHandleMouseDown($event, activity, 'start')"></div>
+                                <div class="link-handle handle-right" [attr.data-id]="activity.id" data-type="finish"
+                                    (mousedown)="onHandleMouseDown($event, activity, 'finish')"></div>
+
+                                <div class="progress" [style.width.%]="activity.percentComplete"></div>
+                                <span class="task-label">{{ activity.name }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Edit Activity Modal -->
+<div class="modal-overlay" *ngIf="editingActivity" (click)="cancelEdit()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+        <h3>Edit Activity</h3>
+        <form (submit)="saveEdit(); $event.preventDefault()">
+            <div class="form-group">
+                <label>Name</label>
+                <input type="text" [(ngModel)]="editForm.name" name="name" required>
+            </div>
+            <div class="form-group">
+                <label>Start Date</label>
+                <input type="date" [(ngModel)]="editForm.startDate" name="startDate" required>
+            </div>
+            <div class="form-group">
+                <label>Duration (days)</label>
+                <input type="number" [(ngModel)]="editForm.duration" name="duration" min="1" required>
+            </div>
+            <div class="form-group">
+                <label>Progress (%)</label>
+                <input type="number" [(ngModel)]="editForm.percentComplete" name="percentComplete" min="0" max="100"
+                    required>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" (click)="cancelEdit()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+<!-- Activity Details Panel -->
+<div class="details-panel" *ngIf="selectedActivity">
+    <div class="details-header">
+        <h3>Activity Details</h3>
+        <button class="close-btn" (click)="closeDetailsPanel()">?</button>
+    </div>
+    <div class="details-content">
+        <div class="detail-item">
+            <label>Name:</label>
+            <span>{{ selectedActivity.name }}</span>
+        </div>
+        <div class="detail-item">
+            <label>Start Date:</label>
+            <span>{{ selectedActivity.startDate | date:'mediumDate' }}</span>
+        </div>
+        <div class="detail-item">
+            <label>Duration:</label>
+            <span>{{ selectedActivity.duration }} days</span>
+        </div>
+        <div class="detail-item">
+            <label>End Date:</label>
+            <span>{{ getEndDate(selectedActivity) | date:'mediumDate' }}</span>
+        </div>
+        <div class="detail-item">
+            <label>Progress:</label>
+            <span>{{ selectedActivity.percentComplete }}%</span>
+        </div>
+        <div class="detail-item">
+            <label>ID:</label>
+            <span>{{ selectedActivity.id }}</span>
+        </div>
+    </div>
+</div>
