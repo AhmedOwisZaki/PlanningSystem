@@ -191,6 +191,7 @@
   position: absolute;
   left: 0;
   width: 100%;
+  overflow: visible; // Allow arrows to extend beyond wrapper
   /* pointer-events: none; allow click through to grid if needed? No, bars need events */
 }
 
@@ -203,7 +204,7 @@
   border-radius: 4px;
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(51, 154, 240, 0.3);
-  overflow: hidden;
+  overflow: visible;
 
   &:hover {
     background: #228be6;
@@ -214,18 +215,102 @@
   height: 100%;
   background: rgba(0, 0, 0, 0.15);
   display: block;
+  border-radius: 4px;
 }
 
-.task-label {
+/* Task Label Styling */
+
+/* Default / Tooltip Mode (Zoom <= 2) */
+.task-bar:not(.zoom-large) {
+  .task-label {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px);
+    background: #333;
+    color: #fff;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s, visibility 0.2s;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      margin-left: -5px;
+      border-width: 5px;
+      border-style: solid;
+      border-color: #333 transparent transparent transparent;
+    }
+  }
+
+  /* Show tooltip on hover, UNLESS it's a parent task (which won't use tooltip style) */
+  &:not(.parent-task-bar):hover .task-label {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+/* In-Bar Label Mode (Zoom > 2) */
+.task-bar.zoom-large:not(.parent-task-bar) {
+  .task-label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    /* Left aligned usually looks better inside bar */
+    padding: 0 8px;
+
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+    z-index: 2;
+
+    opacity: 1;
+    visibility: visible;
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+    bottom: auto;
+  }
+}
+
+/* RESTORE WBS PARENT LABEL (The "Leave it as is" rule) */
+.task-bar.parent-task-bar .task-label {
   position: absolute;
-  top: 50%;
-  left: 100%;
-  transform: translateY(-50%);
+  top: 50% !important;
+  left: 100% !important;
+  bottom: auto !important;
+  transform: translateY(-50%) !important;
   margin-left: 8px;
-  font-size: 0.75rem;
-  color: #495057;
-  white-space: nowrap;
-  pointer-events: none;
+
+  background: transparent !important;
+  color: #495057 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+
+  /* Remove tooltip arrow */
+  &::after {
+    display: none !important;
+  }
 }
 
 /* Link Handles */
@@ -521,6 +606,38 @@
   border: 1px solid #212529;
   border-radius: 2px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  position: relative;
+  overflow: visible !important; // Ensure arrows are not clipped
+
+  /* Down arrow at the start */
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: -1px;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 10px 6px 0 6px;
+    border-color: #343a40 transparent transparent transparent;
+    transform: translateX(-50%);
+    z-index: 10;
+  }
+
+  /* Down arrow at the end */
+  &::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: -1px;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 10px 6px 0 6px;
+    border-color: #343a40 transparent transparent transparent;
+    transform: translateX(50%);
+    z-index: 10;
+  }
 
   .task-progress {
     background: linear-gradient(to bottom, #6c757d 0%, #495057 100%);

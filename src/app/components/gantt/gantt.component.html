@@ -17,7 +17,8 @@
             </div>
             <div class="task-list-rows" (scroll)="onTaskListScroll($event)">
                 <div class="task-row" *ngFor="let activity of visibleActivities()" [style.height.px]="rowHeight"
-                    [style.background-color]="getPhaseColor(activity)" [class.root-project]="activity.id === 0">
+                    [style.background-color]="getPhaseColor(activity)" [class.root-project]="activity.id === 0"
+                    (click)="selectActivity(activity, $event)">
                     <div class="col-name" [style.padding-left.px]="getActivityLevel(activity) * 40"><span
                             class="expand-icon" *ngIf="isParentActivity(activity)"
                             (click)="toggleActivity(activity, $event)">{{ activity.isExpanded ? "-" : "+" }}</span><span
@@ -126,7 +127,7 @@
                             [style.top.px]="i * rowHeight" [style.height.px]="rowHeight">
 
                             <div class="task-bar" [class.parent-task-bar]="isParentActivity(activity)"
-                                (mousedown)="onTaskMouseDown($event, activity)"
+                                [class.zoom-large]="zoomLevel() > .5" (mousedown)="onTaskMouseDown($event, activity)"
                                 (click)="selectActivity(activity, $event)" (dblclick)="openEditModal(activity)"
                                 [style.left.px]="getTaskLeft(activity.startDate)"
                                 [style.width.px]="getTaskWidth(activity.duration)">
