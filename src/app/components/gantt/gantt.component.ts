@@ -171,6 +171,7 @@ export class GanttComponent {
   }
 
   // Computed dependency lines
+  // Computed dependency lines
   dependencyLines = computed(() => {
     const lines = [];
     const activities = this.visibleActivities();
@@ -178,79 +179,87 @@ export class GanttComponent {
 
     // Color mapping by type
     const colorMap = {
-      'FS': '#339af0', // Blue
+      'FS': '#f033f0ff', // Blue
       'FF': '#51cf66', // Green
       'SS': '#ff6b6b', // Red
       'SF': '#fcc419'  // Yellow
     };
 
-    // Track paths to detect overlaps
-    const pathCounts = new Map<string, number>();
+    // Track usage of ports to separate lines (SourceId-Type -> count)
+    const portUsage = new Map<string, number>();
+
+    const getOffset = (count: number): number => {
+      if (count === 0) return 0;
+      // Alternating offsets: 0, 10, -10, 20, -20...
+      return Math.ceil(count / 2) * 5 * (count % 2 === 0 ? -1 : 1);
+    };
 
     for (const dep of dependencies) {
       const source = activities.find(a => a.id === dep.sourceId);
       const target = activities.find(a => a.id === dep.targetId);
       if (source && target) {
-        // Path logic
         const sourceIdx = activities.indexOf(source);
         const targetIdx = activities.indexOf(target);
-        let x1, x2;
-        const y1 = (sourceIdx * this.rowHeight) + (this.rowHeight / 2);
-        const y2 = (targetIdx * this.rowHeight) + (this.rowHeight / 2);
 
-        // Source Point
-        if (dep.type === 'FS' || dep.type === 'FF') {
+        let x1, x2;
+        // Central y-positions (before offset)
+        let y1 = (sourceIdx * this.rowHeight) + (this.rowHeight / 2);
+        let y2 = (targetIdx * this.rowHeight) + (this.rowHeight / 2);
+
+        // Determine port types
+        // FS: Source=Finish, Target=Start
+        const srcType = (dep.type === 'FS' || dep.type === 'FF') ? 'finish' : 'start';
+        const tgtType = (dep.type === 'FS' || dep.type === 'SS') ? 'start' : 'finish';
+
+        // Calculate Source Offset
+        const srcKey = `${dep.sourceId}-${srcType}`;
+        const srcCount = portUsage.get(srcKey) || 0;
+        portUsage.set(srcKey, srcCount + 1);
+        y1 += getOffset(srcCount);
+
+        // Calculate Target Offset
+        const tgtKey = `${dep.targetId}-${tgtType}`;
+        const tgtCount = portUsage.get(tgtKey) || 0;
+        portUsage.set(tgtKey, tgtCount + 1);
+        y2 += getOffset(tgtCount);
+
+        // Source Point X
+        if (srcType === 'finish') {
           x1 = this.getTaskLeft(source.startDate) + this.getTaskWidth(source.duration);
         } else {
           x1 = this.getTaskLeft(source.startDate);
         }
 
-        // Target Point
-        if (dep.type === 'FS' || dep.type === 'SS') {
-          // Target is Start (Left)
-          x2 = this.getTaskLeft(target.startDate);
+        // Target Point X (with Arrow Gap)
+        const arrowLen = 12;
+        if (tgtType === 'start') {
+          x2 = this.getTaskLeft(target.startDate) - arrowLen;
         } else {
-          // Target is Finish (Right) - FF, SF
-          x2 = this.getTaskLeft(target.startDate) + this.getTaskWidth(target.duration);
+          x2 = this.getTaskLeft(target.startDate) + this.getTaskWidth(target.duration) + arrowLen;
         }
-
-        // Create a path key for overlap detection
-        const pathKey = `${sourceIdx}-${targetIdx}-${dep.type}`;
-        const overlapCount = pathCounts.get(pathKey) || 0;
-        pathCounts.set(pathKey, overlapCount + 1);
-
-        // Apply vertical offset for overlapping lines
-        const verticalOffset = overlapCount * 5;
-        const y1Adjusted = y1 + verticalOffset;
-        const y2Adjusted = y2 + verticalOffset;
 
         // Calculate offset for path routing
         const offset = 10;
-
         let p = '';
 
-        // Routing Logic
+        // Routing Logic (using offset coordinates)
         if (dep.type === 'FS') {
-          // Standard Finish-to-Start
           if (x1 < x2) {
-            p = `M ${x1} ${y1Adjusted} L ${x2 - offset} ${y1Adjusted} L ${x2 - offset} ${y2Adjusted} L ${x2} ${y2Adjusted}`;
+            p = `M ${x1} ${y1} L ${x2 - offset} ${y1} L ${x2 - offset} ${y2} L ${x2} ${y2}`;
           } else {
-            p = `M ${x1} ${y1Adjusted} L ${x1 + offset} ${y1Adjusted} L ${x1 + offset} ${y2Adjusted - (y2Adjusted - y1Adjusted) / 2} L ${x2 - offset} ${y2Adjusted - (y2Adjusted - y1Adjusted) / 2} L ${x2 - offset} ${y2Adjusted} L ${x2} ${y2Adjusted}`;
+            p = `M ${x1} ${y1} L ${x1 + offset} ${y1} L ${x1 + offset} ${y2 - (y2 - y1) / 2} L ${x2 - offset} ${y2 - (y2 - y1) / 2} L ${x2 - offset} ${y2} L ${x2} ${y2}`;
           }
         } else if (dep.type === 'FF') {
-          // Finish-to-Finish: Loop around the right side
           const safeX = Math.max(x1, x2) + offset;
-          p = `M ${x1} ${y1Adjusted} L ${safeX} ${y1Adjusted} L ${safeX} ${y2Adjusted} L ${x2} ${y2Adjusted}`;
+          p = `M ${x1} ${y1} L ${safeX} ${y1} L ${safeX} ${y2} L ${x2} ${y2}`;
         } else if (dep.type === 'SS') {
-          // Start-to-Start: Loop around the left side
           const safeX = Math.min(x1, x2) - offset;
-          p = `M ${x1} ${y1Adjusted} L ${safeX} ${y1Adjusted} L ${safeX} ${y2Adjusted} L ${x2} ${y2Adjusted}`;
+          p = `M ${x1} ${y1} L ${safeX} ${y1} L ${safeX} ${y2} L ${x2} ${y2}`;
         } else if (dep.type === 'SF') {
-          // Start-to-Finish
           const safeX1 = x1 - offset;
           const safeX2 = x2 + offset;
-          const midY = y1Adjusted + (y2Adjusted - y1Adjusted) / 2;
-          p = `M ${x1} ${y1Adjusted} L ${safeX1} ${y1Adjusted} L ${safeX1} ${midY} L ${safeX2} ${midY} L ${safeX2} ${y2Adjusted} L ${x2} ${y2Adjusted}`;
+          const midY = y1 + (y2 - y1) / 2;
+          p = `M ${x1} ${y1} L ${safeX1} ${y1} L ${safeX1} ${midY} L ${safeX2} ${midY} L ${safeX2} ${y2} L ${x2} ${y2}`;
         }
 
         lines.push({
@@ -535,6 +544,20 @@ export class GanttComponent {
     event.stopPropagation();
     console.log('Activity selected:', activity);
     this.planningService.setSelectedActivity(activity);
+
+    // Center the chart on the selected activity
+    const timeline = document.querySelector('.timeline-panel');
+    if (timeline) {
+      const taskLeft = this.getTaskLeft(activity.startDate);
+      const taskWidth = this.getTaskWidth(activity.duration);
+      const center = taskLeft + (taskWidth / 2);
+      const viewportWidth = timeline.clientWidth;
+
+      timeline.scrollTo({
+        left: center - (viewportWidth / 2),
+        behavior: 'smooth'
+      });
+    }
   }
 
   // Synchronize scroll between task list and timeline
