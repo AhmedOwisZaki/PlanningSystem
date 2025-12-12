@@ -66,7 +66,7 @@ export class GanttComponent {
   // View settings
   dayWidth = 40; // pixels per day
   headerHeight = 60;
-  rowHeight = 40;
+  rowHeight = 30; // With box-sizing: border-box, this includes the 1px border
   zoomLevel = signal(1);
   minZoom = 0.1;
   maxZoom = 6;
