@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PlanningService } from '../../services/planning.service';
+import { Resource } from '../../models/planning.models';
 
 @Component({
     selector: 'app-activity-details',
@@ -17,6 +18,11 @@ export class ActivityDetailsComponent implements OnDestroy {
 
     // Details panel resize state
     detailsPanelHeight = signal(200); // Default height in pixels
+    activeTab = signal<'general' | 'resources'>('general');
+
+    // Resources from service
+    resources = this.planningService.resources;
+
     private isResizingPanel = false;
     private resizeStartY = 0;
     private resizeStartHeight = 0;
@@ -26,6 +32,25 @@ export class ActivityDetailsComponent implements OnDestroy {
     ngOnDestroy() {
         // Ensure listeners are removed if component is destroyed
         this.removeResizeListeners();
+    }
+
+    setActiveTab(tab: 'general' | 'resources') {
+        this.activeTab.set(tab);
+    }
+
+    getResourceName(resourceId: number): string {
+        const res = this.resources().find((r: Resource) => r.id === resourceId);
+        return res ? res.name : 'Unknown Resource';
+    }
+
+    getResourceUnit(resourceId: number): string {
+        const res = this.resources().find((r: Resource) => r.id === resourceId);
+        return res ? res.unit : '';
+    }
+
+    getResourceCost(resourceId: number): number {
+        const res = this.resources().find((r: Resource) => r.id === resourceId);
+        return res ? res.costPerUnit : 0;
     }
 
     closeDetailsPanel() {

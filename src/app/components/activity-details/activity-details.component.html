@@ -4,7 +4,13 @@
         <h3>Activity Details</h3>
         <button class="close-btn" (click)="closeDetailsPanel()">×</button>
     </div>
-    <div class="details-content">
+
+    <div class="details-tabs">
+        <button [class.active]="activeTab() === 'general'" (click)="setActiveTab('general')">General</button>
+        <button [class.active]="activeTab() === 'resources'" (click)="setActiveTab('resources')">Resources</button>
+    </div>
+
+    <div class="details-content" *ngIf="activeTab() === 'general'">
         <div class="detail-item">
             <label>Name:</label>
             <span>{{ selectedActivity()!.name }}</span>
@@ -29,5 +35,34 @@
             <label>ID:</label>
             <span>{{ selectedActivity()!.id }}</span>
         </div>
+    </div>
+
+    <div class="details-content resources-content" *ngIf="activeTab() === 'resources'">
+        <div *ngIf="selectedActivity()?.resourceItems?.length; else noResources">
+            <table class="resource-table">
+                <thead>
+                    <tr>
+                        <th>Resource</th>
+                        <th>Cost/Unit</th>
+                        <th>Amount</th>
+                        <th>Total Cost</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let item of selectedActivity()?.resourceItems">
+                        <td>{{ getResourceName(item.resourceId) }}</td>
+                        <td>{{ getResourceCost(item.resourceId) | currency }} / {{ getResourceUnit(item.resourceId) }}
+                        </td>
+                        <td>{{ item.amount }}</td>
+                        <td>{{ item.amount * getResourceCost(item.resourceId) | currency }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <ng-template #noResources>
+            <div class="no-resources">
+                <i class="icon-info"></i> No resources assigned to this activity.
+            </div>
+        </ng-template>
     </div>
 </div>

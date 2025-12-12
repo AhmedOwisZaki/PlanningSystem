@@ -15,8 +15,8 @@ export class PlanningService {
 
             // WBS 1: Project Initiation (15 activities)
             { id: 1, name: 'Phase 1: Project Initiation', startDate: new Date('2025-01-01'), duration: 30, percentComplete: 80, parentId: 0, isExpanded: true },
-            { id: 2, name: 'Charter Development', startDate: new Date('2025-01-01'), duration: 5, percentComplete: 100, parentId: 1 },
-            { id: 3, name: 'Stakeholder Identification', startDate: new Date('2025-01-06'), duration: 3, percentComplete: 100, parentId: 1 },
+            { id: 2, name: 'Charter Development', startDate: new Date('2025-01-01'), duration: 5, percentComplete: 100, parentId: 1, resourceItems: [{ id: 1, activityId: 2, resourceId: 101, amount: 8 }] },
+            { id: 3, name: 'Stakeholder Identification', startDate: new Date('2025-01-06'), duration: 3, percentComplete: 100, parentId: 1, resourceItems: [{ id: 2, activityId: 3, resourceId: 102, amount: 16 }] },
             { id: 4, name: 'Initial Risk Assessment', startDate: new Date('2025-01-09'), duration: 4, percentComplete: 90, parentId: 1 },
             { id: 5, name: 'Budget Estimation', startDate: new Date('2025-01-13'), duration: 5, percentComplete: 85, parentId: 1 },
             { id: 6, name: 'Resource Planning', startDate: new Date('2025-01-18'), duration: 4, percentComplete: 75, parentId: 1 },
@@ -102,12 +102,18 @@ export class PlanningService {
             { id: 8, sourceId: 36, targetId: 37, type: 'FS' },
             { id: 9, sourceId: 50, targetId: 51, type: 'FS' },
             { id: 10, sourceId: 51, targetId: 52, type: 'FS' }
+        ],
+        resources: [
+            { id: 101, name: 'Project Manager', unit: 'hour', costPerUnit: 150 },
+            { id: 102, name: 'Senior Developer', unit: 'hour', costPerUnit: 120 },
+            { id: 103, name: 'Concrete', unit: 'm3', costPerUnit: 200 }
         ]
     });
 
     // Selectors
     activities = computed(() => this.state().activities);
     dependencies = computed(() => this.state().dependencies);
+    resources = computed(() => this.state().resources);
     projectStartDate = computed(() => this.state().projectStartDate);
     projectEndDate = computed(() => this.state().projectEndDate);
 
@@ -124,8 +130,44 @@ export class PlanningService {
     private maxHistorySize: number = 50;
 
     constructor() {
+        this.assignMockResources();
         // Save initial state
         this.saveToHistory();
+    }
+
+    private assignMockResources() {
+        this.state.update(state => {
+            const resources = state.resources;
+            if (!resources || resources.length === 0) return state;
+
+            const activities = state.activities.map(activity => {
+                // Skip root or parents (summary tasks usually don't have direct resources)
+                const isParent = state.activities.some(a => a.parentId === activity.id);
+                if (activity.parentId === null || isParent) return activity;
+
+                // Skip if already manually assigned
+                if (activity.resourceItems && activity.resourceItems.length > 0) return activity;
+
+                // Assign 1 or 2 random resources
+                const items: any[] = []; // Type any to avoid strict ID collisions in mock logic
+                const numResources = Math.floor(Math.random() * 2) + 1;
+
+                for (let i = 0; i < numResources; i++) {
+                    const res = resources[Math.floor(Math.random() * resources.length)];
+                    // Simple check to avoid duplicates
+                    if (!items.some(x => x.resourceId === res.id)) {
+                        items.push({
+                            id: Math.floor(Math.random() * 1000000) + 1000,
+                            activityId: activity.id,
+                            resourceId: res.id,
+                            amount: Math.floor(Math.random() * 20) + 5
+                        });
+                    }
+                }
+                return { ...activity, resourceItems: items };
+            });
+            return { ...state, activities };
+        });
     }
 
     private saveToHistory() {

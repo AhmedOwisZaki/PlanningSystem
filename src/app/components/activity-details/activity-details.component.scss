@@ -48,9 +48,11 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid #e9ecef;
+    padding: 1rem 1.5rem 0.5rem;
+    /* Reduced bottom padding */
     background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    /* Separator for header */
 
     h3 {
         margin: 0;
@@ -79,11 +81,45 @@
     }
 }
 
+/* Tabs */
+.details-tabs {
+    display: flex;
+    border-bottom: 1px solid #dee2e6;
+    background: #f8f9fa;
+    padding: 0 1.5rem;
+    gap: 1.5rem;
+
+    button {
+        background: none;
+        border: none;
+        padding: 0.75rem 0.25rem;
+        font-size: 0.95rem;
+        color: #6c757d;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+        font-weight: 500;
+        margin-bottom: -1px;
+        /* Align with border */
+
+        &:hover {
+            color: #495057;
+        }
+
+        &.active {
+            color: #339af0;
+            border-bottom-color: #339af0;
+        }
+    }
+}
+
 .details-content {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 1rem;
     padding: 1.5rem;
+    overflow-y: auto;
+    background: white;
 }
 
 .detail-item {
@@ -103,4 +139,56 @@
         color: #212529;
         font-size: 1rem;
     }
+}
+
+/* Resources Content Override */
+.details-content.resources-content {
+    display: block;
+    /* Override grid */
+    padding: 0;
+    /* Remove padding for table full width? Or keep? */
+    padding-top: 0;
+}
+
+.resource-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+
+    th,
+    td {
+        padding: 0.75rem 1.5rem;
+        text-align: left;
+        border-bottom: 1px solid #f1f3f5;
+    }
+
+    th {
+        background: #f8f9fa;
+        color: #495057;
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    td {
+        color: #212529;
+    }
+
+    tbody tr:hover {
+        background: #f8f9fa;
+    }
+}
+
+.no-resources {
+    padding: 3rem;
+    text-align: center;
+    color: #adb5bd;
+    font-style: italic;
+    font-size: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
 }

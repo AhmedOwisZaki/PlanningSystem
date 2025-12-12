@@ -6,6 +6,20 @@ export interface Activity {
     percentComplete: number;
     parentId?: number | null;
     isExpanded?: boolean;
+    resourceItems?: ResourceItem[];
+}
+
+export interface ResourceItem {
+    id: number;
+    resourceId: number;
+    amount: number;
+}
+
+export interface Resource {
+    id: number;
+    name: string;
+    unit: string;
+    costPerUnit: number;
 }
 
 export interface Dependency {
@@ -20,4 +34,5 @@ export interface ProjectState {
     projectEndDate: Date;
     activities: Activity[];
     dependencies: Dependency[];
+    resources: Resource[];
 }
