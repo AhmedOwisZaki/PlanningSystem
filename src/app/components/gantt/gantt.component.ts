@@ -288,8 +288,16 @@ export class GanttComponent {
     percentComplete: 0
   };
 
-  // Selected activity for details panel
-  selectedActivity: any = null;
+  // Selected activity for details panel (from service)
+  selectedActivity = this.planningService.selectedActivity;
+
+  // Details panel resize state
+  detailsPanelHeight = signal(200); // Default height in pixels
+  private isResizingPanel = false;
+  private resizeStartY = 0;
+  private resizeStartHeight = 0;
+  private minPanelHeight = 100;
+  private maxPanelHeight = 600;
 
   onTaskMouseDown(event: MouseEvent, activity: any) {
     if (this.isLinking) return;
@@ -532,11 +540,12 @@ export class GanttComponent {
   // Activity Selection for Details Panel
   selectActivity(activity: any, event: MouseEvent) {
     event.stopPropagation();
-    this.selectedActivity = activity;
+    console.log('Activity selected:', activity);
+    this.planningService.setSelectedActivity(activity);
   }
 
   closeDetailsPanel() {
-    this.selectedActivity = null;
+    this.planningService.setSelectedActivity(null);
   }
 
   getEndDate(activity: any): Date {
@@ -576,5 +585,36 @@ export class GanttComponent {
     }
 
     setTimeout(() => this.isSyncingLeft = false, 10);
+  }
+
+  // Details Panel Resize Handlers
+  onPanelResizeStart(event: MouseEvent) {
+    event.preventDefault();
+    this.isResizingPanel = true;
+    this.resizeStartY = event.clientY;
+    this.resizeStartHeight = this.detailsPanelHeight();
+
+    document.addEventListener('mousemove', this.onPanelResize);
+    document.addEventListener('mouseup', this.onPanelResizeEnd);
+  }
+
+  private onPanelResize = (event: MouseEvent) => {
+    if (!this.isResizingPanel) return;
+
+    const deltaY = this.resizeStartY - event.clientY; // Inverted: drag up = increase height
+    const newHeight = Math.max(
+      this.minPanelHeight,
+      Math.min(this.maxPanelHeight, this.resizeStartHeight + deltaY)
+    );
+
+    this.detailsPanelHeight.set(newHeight);
+  }
+
+  private onPanelResizeEnd = () => {
+    if (this.isResizingPanel) {
+      this.isResizingPanel = false;
+      document.removeEventListener('mousemove', this.onPanelResize);
+      document.removeEventListener('mouseup', this.onPanelResizeEnd);
+    }
   }
 }

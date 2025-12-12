@@ -1,0 +1,33 @@
+<div class="details-panel" *ngIf="selectedActivity()" [style.height.px]="detailsPanelHeight()">
+    <div class="resize-handle" (mousedown)="onPanelResizeStart($event)"></div>
+    <div class="details-header">
+        <h3>Activity Details</h3>
+        <button class="close-btn" (click)="closeDetailsPanel()">×</button>
+    </div>
+    <div class="details-content">
+        <div class="detail-item">
+            <label>Name:</label>
+            <span>{{ selectedActivity()!.name }}</span>
+        </div>
+        <div class="detail-item">
+            <label>Start Date:</label>
+            <span>{{ selectedActivity()!.startDate | date:'mediumDate' }}</span>
+        </div>
+        <div class="detail-item">
+            <label>Duration:</label>
+            <span>{{ selectedActivity()!.duration }} days</span>
+        </div>
+        <div class="detail-item">
+            <label>End Date:</label>
+            <span>{{ getEndDate(selectedActivity()!) | date:'mediumDate' }}</span>
+        </div>
+        <div class="detail-item">
+            <label>Progress:</label>
+            <span>{{ selectedActivity()!.percentComplete }}%</span>
+        </div>
+        <div class="detail-item">
+            <label>ID:</label>
+            <span>{{ selectedActivity()!.id }}</span>
+        </div>
+    </div>
+</div>

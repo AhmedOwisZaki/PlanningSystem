@@ -111,13 +111,99 @@ export class PlanningService {
     projectStartDate = computed(() => this.state().projectStartDate);
     projectEndDate = computed(() => this.state().projectEndDate);
 
-    constructor() { }
+    // Selected Activity (shared between components)
+    selectedActivity = signal<Activity | null>(null);
+
+    setSelectedActivity(activity: Activity | null) {
+        this.selectedActivity.set(activity);
+    }
+
+    // History for undo/redo
+    private history: ProjectState[] = [];
+    private historyIndex: number = -1;
+    private maxHistorySize: number = 50;
+
+    constructor() {
+        // Save initial state
+        this.saveToHistory();
+    }
+
+    private saveToHistory() {
+        // Remove any future states if we're not at the end
+        this.history = this.history.slice(0, this.historyIndex + 1);
+
+        // Add current state
+        this.history.push(JSON.parse(JSON.stringify(this.state())));
+
+        // Limit history size
+        if (this.history.length > this.maxHistorySize) {
+            this.history.shift();
+        } else {
+            this.historyIndex++;
+        }
+    }
+
+    canUndo(): boolean {
+        return this.historyIndex > 0;
+    }
+
+    canRedo(): boolean {
+        return this.historyIndex < this.history.length - 1;
+    }
+
+    undo() {
+        if (this.canUndo()) {
+            this.historyIndex--;
+            this.state.set(JSON.parse(JSON.stringify(this.history[this.historyIndex])));
+        }
+    }
+
+    redo() {
+        if (this.canRedo()) {
+            this.historyIndex++;
+            this.state.set(JSON.parse(JSON.stringify(this.history[this.historyIndex])));
+        }
+    }
+
+    addActivity(parentId: number | null = null) {
+        const newId = Math.max(...this.state().activities.map(a => a.id)) + 1;
+        const newActivity: Activity = {
+            id: newId,
+            name: 'New Activity',
+            startDate: new Date(),
+            duration: 5,
+            percentComplete: 0,
+            parentId: parentId
+        };
+
+        this.state.update(current => ({
+            ...current,
+            activities: [...current.activities, newActivity]
+        }));
+        this.saveToHistory();
+    }
+
+    deleteActivity(activityId: number) {
+        // Don't delete if it has children
+        if (this.isParent(activityId)) {
+            alert('Cannot delete activity with children. Delete children first.');
+            return;
+        }
+
+        this.state.update(current => ({
+            ...current,
+            activities: current.activities.filter(a => a.id !== activityId),
+            dependencies: current.dependencies.filter(d => d.sourceId !== activityId && d.targetId !== activityId)
+        }));
+        this.saveToHistory();
+    }
 
     updateActivity(updatedActivity: Activity) {
         this.state.update(current => ({
             ...current,
             activities: current.activities.map(a => a.id === updatedActivity.id ? updatedActivity : a)
         }));
+        this.saveToHistory();
     }
 
     addDependency(sourceId: number, targetId: number, type: 'FS' | 'FF' | 'SS' | 'SF' = 'FS') {

@@ -1,17 +1,17 @@
 <div class="gantt-toolbar">
     <div class="toolbar-group">
-        <button class="toolbar-btn" title="Add Activity">
+        <button class="toolbar-btn" title="Add Activity" (click)="onAdd()">
             <span>+</span>
         </button>
-        <button class="toolbar-btn" title="Delete Activity">
+        <button class="toolbar-btn" title="Delete Activity" (click)="onDelete()">
             <span>×</span>
         </button>
     </div>
     <div class="toolbar-group">
-        <button class="toolbar-btn" title="Undo">
+        <button class="toolbar-btn" title="Undo" (click)="onUndo()" [disabled]="!canUndo()">
             <span>↶</span>
         </button>
-        <button class="toolbar-btn" title="Redo">
+        <button class="toolbar-btn" title="Redo" (click)="onRedo()" [disabled]="!canRedo()">
             <span>↷</span>
         </button>
     </div>
