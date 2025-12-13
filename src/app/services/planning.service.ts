@@ -103,10 +103,16 @@ export class PlanningService {
             { id: 9, sourceId: 50, targetId: 51, type: 'FS' },
             { id: 10, sourceId: 51, targetId: 52, type: 'FS' }
         ],
+        resourceTypes: [
+            { id: 1, name: 'Human', description: 'Labor resources' },
+            { id: 2, name: 'Machine', description: 'Equipment and machinery' },
+            { id: 3, name: 'Material', description: 'Consumable materials' }
+        ],
         resources: [
-            { id: 101, name: 'Project Manager', unit: 'hour', costPerUnit: 150 },
-            { id: 102, name: 'Senior Developer', unit: 'hour', costPerUnit: 120 },
-            { id: 103, name: 'Concrete', unit: 'm3', costPerUnit: 200 }
+            { id: 101, name: 'Project Manager', unit: 'hour', costPerUnit: 150, resourceTypeId: 1 },
+            { id: 102, name: 'Senior Developer', unit: 'hour', costPerUnit: 120, resourceTypeId: 1 },
+            { id: 103, name: 'Concrete', unit: 'm3', costPerUnit: 200, resourceTypeId: 3 },
+            { id: 104, name: 'Excavator', unit: 'day', costPerUnit: 1200, resourceTypeId: 2 }
         ]
     });
 
@@ -116,6 +122,8 @@ export class PlanningService {
     resources = computed(() => this.state().resources);
     projectStartDate = computed(() => this.state().projectStartDate);
     projectEndDate = computed(() => this.state().projectEndDate);
+
+    resourceTypes = computed(() => this.state().resourceTypes);
 
     // Selected Activity (shared between components)
     selectedActivity = signal<Activity | null>(null);
@@ -260,6 +268,46 @@ export class PlanningService {
             ...current,
             dependencies: current.dependencies.filter(d => d.id !== id)
         }));
+    }
+
+    addResource(resource: any) {
+        const currentResources = this.state().resources || [];
+        const newId = currentResources.length > 0 ? Math.max(...currentResources.map(r => r.id)) + 1 : 101;
+
+        this.state.update(current => ({
+            ...current,
+            resources: [...(current.resources || []), { ...resource, id: newId }]
+        }));
+    }
+
+    assignResourceToActivity(activityId: number, resourceId: number, amount: number) {
+        let updatedActivity: Activity | undefined;
+
+        this.state.update(current => {
+            const activities = current.activities.map(a => {
+                if (a.id !== activityId) return a;
+
+                const currentItems = a.resourceItems || [];
+                const newItem = {
+                    id: Date.now(),
+                    activityId: activityId,
+                    resourceId: resourceId,
+                    amount: amount
+                };
+
+                updatedActivity = { ...a, resourceItems: [...currentItems, newItem] };
+                return updatedActivity;
+            });
+            return { ...current, activities };
+        });
+
+        // Update selectedActivity if it matches the one we just modified
+        const currentSelected = this.selectedActivity();
+        if (currentSelected && currentSelected.id === activityId && updatedActivity) {
+            this.selectedActivity.set(updatedActivity);
+        }
+
+        this.saveToHistory();
     }
 
     // WBS Hierarchy Methods

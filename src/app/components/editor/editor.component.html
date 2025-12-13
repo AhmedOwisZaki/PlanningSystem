@@ -1,0 +1,80 @@
+<div class="editor-panel">
+    <div style="background: red; color: white; padding: 10px; font-weight: bold; text-align: center;">
+        EDITOR IS WORKING CHECK
+    </div>
+    <!-- Tab Navigation -->
+    <div class="editor-tabs">
+        <div class="tab" [class.active]="activeTab === 'project'" (click)="toggleTab('project')">Project</div>
+        <div class="tab" [class.active]="activeTab === 'resources'" (click)="toggleTab('resources')">Resources</div>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="editor-content">
+
+        <!-- PROJECT TAB (Placeholder) -->
+        <div *ngIf="activeTab === 'project'" class="tab-pane">
+            <p>Project details and global settings will go here.</p>
+        </div>
+
+        <!-- RESOURCES TAB -->
+        <div *ngIf="activeTab === 'resources'" class="tab-pane resources-pane">
+
+            <!-- Header with Add Button -->
+            <div class="resources-header">
+                <h3>All Resources</h3>
+                <button class="btn-add" (click)="startAddResource()" *ngIf="!showAddResourceForm">+</button>
+            </div>
+
+            <!-- Add Resource Form -->
+            <div class="add-resource-form" *ngIf="showAddResourceForm">
+                <h4>New Resource</h4>
+                <div class="form-row">
+                    <input type="text" [(ngModel)]="newResource.name" placeholder="Resource Name" class="form-control"
+                        autofocus>
+                </div>
+                <div class="form-row">
+                    <select [(ngModel)]="newResource.resourceTypeId" class="form-control">
+                        <option *ngFor="let type of resourceTypes()" [value]="type.id">{{ type.name }}</option>
+                    </select>
+                </div>
+                <div class="form-row" style="display: flex; gap: 10px;">
+                    <input type="number" [(ngModel)]="newResource.costPerUnit" placeholder="Cost" class="form-control"
+                        style="width: 80px;">
+                    <input type="text" [(ngModel)]="newResource.unit" placeholder="Unit (e.g. hour)"
+                        class="form-control">
+                </div>
+                <div class="form-actions">
+                    <button (click)="cancelAddResource()" class="btn-cancel">Cancel</button>
+                    <button (click)="saveNewResource()" class="btn-save">Save</button>
+                </div>
+            </div>
+
+            <!-- Resource Categories Accordion -->
+            <div class="resource-categories">
+                <div class="category-group" *ngFor="let group of resourcesByType()">
+
+                    <!-- Category Header -->
+                    <div class="category-header" [class.human]="group.name === 'Human'"
+                        [class.machine]="group.name === 'Machine'" [class.material]="group.name === 'Material'"
+                        (click)="toggleCategory(group.id)">
+                        <span class="care-icon">{{ isCategoryExpanded(group.id) ? '▼' : '▶' }}</span>
+                        <span class="category-name">{{ group.name }}</span>
+                        <span class="count-badge">{{ group.resources.length }}</span>
+                    </div>
+
+                    <!-- Resource List -->
+                    <div class="resource-list" *ngIf="isCategoryExpanded(group.id)">
+                        <div class="resource-item" *ngFor="let res of group.resources">
+                            <div class="res-name">{{ res.name }}</div>
+                            <div class="res-cost">{{ res.costPerUnit | currency }} / {{ res.unit }}</div>
+                        </div>
+                        <div class="no-resources" *ngIf="group.resources.length === 0">
+                            No resources
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>

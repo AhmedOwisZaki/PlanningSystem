@@ -38,31 +38,68 @@
     </div>
 
     <div class="details-content resources-content" *ngIf="activeTab() === 'resources'">
-        <div *ngIf="selectedActivity()?.resourceItems?.length; else noResources">
-            <table class="resource-table">
-                <thead>
-                    <tr>
-                        <th>Resource</th>
-                        <th>Cost/Unit</th>
-                        <th>Amount</th>
-                        <th>Total Cost</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr *ngFor="let item of selectedActivity()?.resourceItems">
-                        <td>{{ getResourceName(item.resourceId) }}</td>
-                        <td>{{ getResourceCost(item.resourceId) | currency }} / {{ getResourceUnit(item.resourceId) }}
-                        </td>
-                        <td>{{ item.amount }}</td>
-                        <td>{{ item.amount * getResourceCost(item.resourceId) | currency }}</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        <ng-template #noResources>
-            <div class="no-resources">
-                <i class="icon-info"></i> No resources assigned to this activity.
+        <div class="resources-split-layout">
+            <!-- Left Side: Allocated Resources List -->
+            <div class="resources-list-section">
+                <div *ngIf="selectedActivity()?.resourceItems?.length; else noResources">
+                    <table class="resource-table">
+                        <thead>
+                            <tr>
+                                <th>Resource</th>
+                                <th>Cost</th>
+                                <th>Qty</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let item of selectedActivity()?.resourceItems">
+                                <td>{{ getResourceName(item.resourceId) }}</td>
+                                <td>{{ getResourceCost(item.resourceId) | currency }}</td>
+                                <td>{{ item.amount }}</td>
+                                <td>{{ item.amount * getResourceCost(item.resourceId) | currency }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <ng-template #noResources>
+                    <div class="no-resources" *ngIf="!isAssigningResource">
+                        <i class="icon-info"></i> No resources assigned.
+                    </div>
+                </ng-template>
             </div>
-        </ng-template>
+
+            <!-- Right Side: Assignment Controls -->
+            <div class="resources-assign-section">
+                <div class="assign-controls">
+                    <!-- Always show header or title -->
+                    <h4 class="assign-header">Assign Resource</h4>
+
+                    <button class="btn-assign" *ngIf="!isAssigningResource" (click)="startAssignResource()">+
+                        Add</button>
+
+                    <div class="assign-form" *ngIf="isAssigningResource">
+                        <div class="form-group">
+                            <label>Resource</label>
+                            <select [(ngModel)]="newAssignment.resourceId" class="form-control">
+                                <option [ngValue]="null" disabled>Select...</option>
+                                <option *ngFor="let res of resources()" [ngValue]="res.id">
+                                    {{ res.name }}
+                                </option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Amount</label>
+                            <input type="number" [(ngModel)]="newAssignment.amount" min="1" class="form-control"
+                                placeholder="1">
+                        </div>
+                        <div class="form-actions">
+                            <button class="btn-cancel" (click)="cancelAssignResource()">Cancel</button>
+                            <button class="btn-save" (click)="saveResourceAssignment()"
+                                [disabled]="!newAssignment.resourceId">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>

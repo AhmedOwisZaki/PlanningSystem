@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PlanningService } from '../../services/planning.service';
 import { ActivityDetailsComponent } from '../activity-details/activity-details.component';
+import { EditorComponent } from '../editor/editor.component';
 
 @Component({
   selector: 'app-gantt',
   standalone: true,
-  imports: [CommonModule, FormsModule, ActivityDetailsComponent],
+  imports: [CommonModule, FormsModule, ActivityDetailsComponent, EditorComponent],
   templateUrl: './gantt.component.html',
   styleUrls: ['./gantt.component.scss']
 })
@@ -297,6 +298,17 @@ export class GanttComponent {
     duration: 1,
     percentComplete: 0
   };
+
+  // Editor state
+  isEditorVisible = false;
+
+  onGearMouseEnter() {
+    this.isEditorVisible = true;
+  }
+
+  closeEditor() {
+    this.isEditorVisible = false;
+  }
 
   // Selected activity for details panel (from service)
   selectedActivity = this.planningService.selectedActivity;

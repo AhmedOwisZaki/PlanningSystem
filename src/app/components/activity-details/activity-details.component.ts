@@ -1,12 +1,13 @@
 import { Component, computed, inject, signal, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { PlanningService } from '../../services/planning.service';
 import { Resource } from '../../models/planning.models';
 
 @Component({
     selector: 'app-activity-details',
     standalone: true,
-    imports: [CommonModule],
+    imports: [CommonModule, FormsModule],
     templateUrl: './activity-details.component.html',
     styleUrls: ['./activity-details.component.scss']
 })
@@ -39,22 +40,54 @@ export class ActivityDetailsComponent implements OnDestroy {
     }
 
     getResourceName(resourceId: number): string {
-        const res = this.resources().find((r: Resource) => r.id === resourceId);
+        const resources = this.resources() || [];
+        const res = resources.find((r: Resource) => r.id === resourceId);
         return res ? res.name : 'Unknown Resource';
     }
 
     getResourceUnit(resourceId: number): string {
-        const res = this.resources().find((r: Resource) => r.id === resourceId);
+        const resources = this.resources() || [];
+        const res = resources.find((r: Resource) => r.id === resourceId);
         return res ? res.unit : '';
     }
 
     getResourceCost(resourceId: number): number {
-        const res = this.resources().find((r: Resource) => r.id === resourceId);
+        const resources = this.resources() || [];
+        const res = resources.find((r: Resource) => r.id === resourceId);
         return res ? res.costPerUnit : 0;
+    }
+
+    // Resource Assignment
+    isAssigningResource = false;
+    newAssignment = {
+        resourceId: null as number | null,
+        amount: 1
+    };
+
+    startAssignResource() {
+        this.isAssigningResource = true;
+        this.newAssignment = { resourceId: null, amount: 1 };
+    }
+
+    cancelAssignResource() {
+        this.isAssigningResource = false;
+    }
+
+    saveResourceAssignment() {
+        const activity = this.selectedActivity();
+        if (activity && this.newAssignment.resourceId && this.newAssignment.amount > 0) {
+            this.planningService.assignResourceToActivity(
+                activity.id,
+                this.newAssignment.resourceId,
+                this.newAssignment.amount
+            );
+            this.isAssigningResource = false;
+        }
     }
 
     closeDetailsPanel() {
         this.planningService.setSelectedActivity(null);
+        this.isAssigningResource = false;
     }
 
     getEndDate(activity: any): Date {

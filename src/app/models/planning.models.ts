@@ -11,6 +11,7 @@ export interface Activity {
 
 export interface ResourceItem {
     id: number;
+    activityId: number;
     resourceId: number;
     amount: number;
 }
@@ -20,6 +21,12 @@ export interface Resource {
     name: string;
     unit: string;
     costPerUnit: number;
+    resourceTypeId: number;
+}
+export interface ResourceType {
+    id: number;
+    name: string;
+    description: string;
 }
 
 export interface Dependency {
@@ -34,5 +41,6 @@ export interface ProjectState {
     projectEndDate: Date;
     activities: Activity[];
     dependencies: Dependency[];
-    resources: Resource[];
+    resources?: Resource[];
+    resourceTypes?: ResourceType[];
 }
