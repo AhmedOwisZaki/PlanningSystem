@@ -9,7 +9,7 @@
     </div>
 
     <!-- Tab Content -->
-    <div class="editor-content">
+    <div class="editor-content" (click)="deselectResource()">
 
         <!-- PROJECT TAB (Placeholder) -->
         <div *ngIf="activeTab === 'project'" class="tab-pane">
@@ -19,14 +19,20 @@
         <!-- RESOURCES TAB -->
         <div *ngIf="activeTab === 'resources'" class="tab-pane resources-pane">
 
-            <!-- Header with Add Button -->
-            <div class="resources-header">
-                <h3>All Resources</h3>
+            <!-- Header with Actions -->
+            <div class="resources-header" (click)="$event.stopPropagation()">
+                <div class="header-left">
+                    <h3>All Resources</h3>
+                    <button class="btn-profile" [disabled]="!selectedResource()" [class.active]="selectedResource()"
+                        (click)="openProfile($event)">
+                        Show resource usage profile
+                    </button>
+                </div>
                 <button class="btn-add" (click)="startAddResource()" *ngIf="!showAddResourceForm">+</button>
             </div>
 
             <!-- Add Resource Form -->
-            <div class="add-resource-form" *ngIf="showAddResourceForm">
+            <div class="add-resource-form" *ngIf="showAddResourceForm" (click)="$event.stopPropagation()">
                 <h4>New Resource</h4>
                 <div class="form-row">
                     <input type="text" [(ngModel)]="newResource.name" placeholder="Resource Name" class="form-control"
@@ -49,14 +55,14 @@
                 </div>
             </div>
 
-            <!-- Resource Categories Accordion -->
+            <!-- Resource List (No Side Panel) -->
             <div class="resource-categories">
                 <div class="category-group" *ngFor="let group of resourcesByType()">
 
                     <!-- Category Header -->
                     <div class="category-header" [class.human]="group.name === 'Human'"
                         [class.machine]="group.name === 'Machine'" [class.material]="group.name === 'Material'"
-                        (click)="toggleCategory(group.id)">
+                        (click)="toggleCategory(group.id); $event.stopPropagation()">
                         <span class="care-icon">{{ isCategoryExpanded(group.id) ? '▼' : '▶' }}</span>
                         <span class="category-name">{{ group.name }}</span>
                         <span class="count-badge">{{ group.resources.length }}</span>
@@ -64,7 +70,8 @@
 
                     <!-- Resource List -->
                     <div class="resource-list" *ngIf="isCategoryExpanded(group.id)">
-                        <div class="resource-item" *ngFor="let res of group.resources">
+                        <div class="resource-item" *ngFor="let res of group.resources"
+                            [class.selected]="selectedResource() === res" (click)="selectResource(res, $event)">
                             <div class="res-name">{{ res.name }}</div>
                             <div class="res-cost">{{ res.costPerUnit | currency }} / {{ res.unit }}</div>
                         </div>
@@ -76,5 +83,11 @@
             </div>
 
         </div>
+
     </div>
+
+    <app-resource-usage-chart *ngIf="showProfile() && selectedResource()" [resource]="selectedResource()"
+        [activities]="activities()" [projectStartDate]="projectStartDate()" [projectEndDate]="projectEndDate()"
+        (close)="closeProfile()">
+    </app-resource-usage-chart>
 </div>
