@@ -1,5 +1,5 @@
 <div class="app-container">
-  <header class="app-header">
+  <header class="app-header" *ngIf="!isWelcomePage()">
     <h1>Project Planning System</h1>
     <app-gantt-chart-tool-bar></app-gantt-chart-tool-bar>
   </header>
