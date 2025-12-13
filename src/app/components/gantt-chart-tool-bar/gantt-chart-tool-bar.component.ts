@@ -61,4 +61,12 @@ export class GanttChartToolBarComponent {
             this.planningService.createBaseline();
         }
     }
+
+    onLevel(event: MouseEvent) {
+        // Shift+Click could optionally reset resource limits or clear leveling delays, 
+        // but for now let's just trigger leveling. 
+        // Perhaps we can add a 'Reset Leveling' feature later which just calls scheduleProject().
+        // Actually, let's treat specific shift logic if needed or just call level.
+        this.planningService.levelResources();
+    }
 }

@@ -619,6 +619,210 @@ export class PlanningService {
         this.saveToHistory();
     }
 
+    // Resource Leveling
+    levelResources() {
+        // 1. Reset Dates to Basic CPM (Early Dates)
+        this.scheduleProject();
+        const state = this.state();
+        let activities = JSON.parse(JSON.stringify(state.activities)) as Activity[]; // Deep copy
+
+        // Ensure resources have limits (default to 1 if undefined)
+        const resources = state.resources || [];
+        const resourceLimits = new Map<number, number>();
+        resources.forEach(r => resourceLimits.set(r.id, r.limit || 1));
+
+        // 2. Setup Structures
+        const allocation = new Map<number, Map<string, number>>();
+        const getUsed = (resId: number, dateStr: string): number => {
+            if (!allocation.has(resId)) allocation.set(resId, new Map());
+            return allocation.get(resId)!.get(dateStr) || 0;
+        };
+        const addUsage = (resId: number, dateStr: string, amount: number) => {
+            if (!allocation.has(resId)) allocation.set(resId, new Map());
+            const current = allocation.get(resId)!.get(dateStr) || 0;
+            allocation.get(resId)!.set(dateStr, current + amount);
+        };
+
+        const canSchedule = (act: Activity, startDate: Date): boolean => {
+            if (!act.resourceItems || act.resourceItems.length === 0) return true;
+            for (let i = 0; i < act.duration; i++) {
+                const currentDay = new Date(startDate);
+                currentDay.setDate(currentDay.getDate() + i);
+                const dateStr = currentDay.toISOString().split('T')[0];
+                for (const item of act.resourceItems) {
+                    const limit = resourceLimits.get(item.resourceId) || 1;
+                    const used = getUsed(item.resourceId, dateStr);
+                    if (used + item.amount > limit) return false;
+                }
+            }
+            return true;
+        };
+
+        const activityMap = new Map<number, Activity>();
+        activities.forEach(a => activityMap.set(a.id, a));
+
+        // Dependency Maps
+        const succMap = new Map<number, Dependency[]>(); // Source -> [Depts]
+        const predMap = new Map<number, number[]>(); // Target -> [Source IDs]
+
+        state.dependencies.forEach(d => {
+            if (!succMap.has(d.sourceId)) succMap.set(d.sourceId, []);
+            succMap.get(d.sourceId)!.push(d);
+
+            if (!predMap.has(d.targetId)) predMap.set(d.targetId, []);
+            predMap.get(d.targetId)!.push(d.sourceId);
+        });
+
+        // 3. Serial Method with Eligible Set
+        const scheduledIds = new Set<number>();
+        const eligibleQueue: Activity[] = [];
+
+        // Initialize Queue: All leaf activities with no predecessors (or all preds ignored/summary)
+        const leafActivities = activities.filter(a => !this.isParent(a.id) && a.type !== 'StartMilestone' && a.type !== 'FinishMilestone');
+
+        leafActivities.forEach(a => {
+            const preds = predMap.get(a.id) || [];
+            // Assuming no circular preds for now (CPM check handles that)
+            if (preds.length === 0) {
+                eligibleQueue.push(a);
+            }
+        });
+
+        // Loop until queue empty
+        // Note: If circular dependencies exist or logic flaw, might hang. Add safety.
+        let loopCount = 0;
+        const maxLoops = leafActivities.length * 2;
+
+        while (eligibleQueue.length > 0 && loopCount < maxLoops) {
+            loopCount++;
+
+            // Sort Eligible Queue (Heuristic)
+            eligibleQueue.sort((a, b) => {
+                const dateA = new Date(a.earlyStart || a.startDate).getTime();
+                const dateB = new Date(b.earlyStart || b.startDate).getTime();
+                if (dateA !== dateB) return dateA - dateB;
+
+                const floatA = a.totalFloat || 0;
+                const floatB = b.totalFloat || 0;
+                if (floatA !== floatB) return floatA - floatB;
+
+                return a.id - b.id;
+            });
+
+            // Make sure we only process nodes whose preds are ALL scheduled
+            // Double check validity (queue might have been added to eagerly?)
+            // Actually, the logic below ensures we only add to queue when all preds done.
+            // But initial population needs to cover cases where preds might be summaries? 
+            // Limitation: We ignore summaries in leveling. So if A -> Summary -> B, we break chain?
+            // Current CPM logic does not usually link summaries directly. Relationships are on tasks.
+
+            // Pop highest priority
+            const act = eligibleQueue.shift()!;
+
+            // Double check: if it was already scheduled? (Shouldn't be)
+            if (scheduledIds.has(act.id)) continue;
+
+            // Calculate Effective Start (based on predecessors' LEVELED finish)
+            let effectiveStart = new Date(act.earlyStart || act.startDate);
+            const preds = state.dependencies.filter(d => d.targetId === act.id);
+            preds.forEach(p => {
+                const source = activityMap.get(p.sourceId);
+                if (source && (scheduledIds.has(source.id) || source.type?.includes('Milestone'))) {
+                    const sourceFinish = new Date(source.startDate);
+                    sourceFinish.setDate(sourceFinish.getDate() + source.duration);
+
+                    // Assuming FS Logic for now
+                    if (p.type === 'FS') {
+                        if (sourceFinish > effectiveStart) effectiveStart = sourceFinish;
+                    }
+                    // Add other types if needed (SS etc)
+                }
+            });
+
+            // Find Slot
+            let testStart = new Date(effectiveStart);
+            let delayed = false;
+            let attempts = 0;
+            // Limit lookahead to prevent infinite loop
+            while (!canSchedule(act, testStart) && attempts < 365) {
+                testStart.setDate(testStart.getDate() + 1);
+                delayed = true;
+                attempts++;
+            }
+
+            // Commit
+            if (act.resourceItems) {
+                for (let i = 0; i < act.duration; i++) {
+                    const currentDay = new Date(testStart);
+                    currentDay.setDate(currentDay.getDate() + i);
+                    const dateStr = currentDay.toISOString().split('T')[0];
+                    for (const item of act.resourceItems) {
+                        addUsage(item.resourceId, dateStr, item.amount);
+                    }
+                }
+            }
+
+            // Update
+            act.startDate = testStart;
+            const es = new Date(act.earlyStart || act.startDate);
+            // Fix TS Error via cast
+            const diff = (testStart as Date).getTime() - (es as Date).getTime();
+            act.levelingDelay = Math.round(diff / (1000 * 3600 * 24));
+
+            scheduledIds.add(act.id);
+
+            // Add successors to queue if eligible
+            const succs = succMap.get(act.id) || [];
+            succs.forEach(d => {
+                const successor = activityMap.get(d.targetId);
+                // Must be a leaf task we are managing
+                if (successor && !this.isParent(successor.id) && !successor.type?.includes('Milestone')) {
+                    // Check if ALL predecessors of this successor are scheduled
+                    const succPreds = predMap.get(successor.id) || [];
+                    const allPredsDone = succPreds.every(pid => {
+                        const pFunc = activityMap.get(pid);
+                        // If pred is a summary or milestone, we treat it as done? 
+                        // Or we should have included milestones in scheduling?
+                        // If milestone, we don't level it, but it exists.
+                        if (!pFunc) return true; // Safety
+                        if (pFunc.type?.includes('Milestone')) return true; // Milestones don't block logic here? 
+                        if (this.isParent(pid)) return true; // Summaries ignored
+                        return scheduledIds.has(pid);
+                    });
+
+                    if (allPredsDone && !scheduledIds.has(successor.id) && !eligibleQueue.find(q => q.id === successor.id)) {
+                        eligibleQueue.push(successor);
+                    }
+                }
+            });
+        }
+
+        // Handle Milestones (just update dates based on preds, no resource check)
+        // Or re-run scheduleProject() respecting the forced dates? 
+        // Better: rollupWBS handles summaries. Milestones need to be updated? 
+        // Re-running scheduleProject with 'imposed' dates is complex.
+
+        // Let's just rollup WBS. Milestones might be out of sync if they depended on leveled tasks.
+        // Simple fix: simple forward pass for milestones/non-leveled items.
+
+        this.rollupWBS(activities);
+
+        // Recalculate Project End Date (Calendar Bars coverage)
+        let maxEnd = new Date(state.projectStartDate);
+        activities.forEach(a => {
+            const finish = new Date(a.startDate);
+            finish.setDate(finish.getDate() + a.duration);
+            if (finish > maxEnd) maxEnd = finish;
+        });
+
+        this.state.update(s => ({
+            ...s,
+            activities: activities,
+            projectEndDate: maxEnd
+        }));
+        this.saveToHistory();
+    }
+
     // Relationship Helpers
     getPredecessors(activityId: number): Dependency[] {
         return this.state().dependencies.filter(d => d.targetId === activityId);

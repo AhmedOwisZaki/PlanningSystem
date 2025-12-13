@@ -71,27 +71,15 @@
                 </div>
 
                 <!-- Timeline Grid/Rows -->
-                <div class="timeline-grid">
+                <div class="timeline-grid" [style.height.px]="visibleActivities().length * rowHeight">
                     <!-- Background Grid Lines -->
                     <div class="grid-background" [style.height.px]="visibleActivities().length * rowHeight">
                         <div class="grid-col" *ngFor="let day of days()" [style.width.px]="dayWidth * zoomLevel()">
                         </div>
                     </div>
 
-                    <!-- Dependency Lines SVG -->
-                    <svg class="dependency-lines-container" [style.height.px]="visibleActivities().length * rowHeight"
-                        [style.width.px]="timelineWidth()">
-                        <!-- Existing Links -->
-                        <path *ngFor="let link of dependencyLines()" [attr.d]="link.path" fill="none"
-                            class="link-path" />
-
-                        <!-- Creating Link (Temp Line) -->
-                        <line *ngIf="isLinking && tempLinkEnd" [attr.x1]="tempLinkStart.x" [attr.y1]="tempLinkStart.y"
-                            [attr.x2]="tempLinkEnd.x" [attr.y2]="tempLinkEnd.y" class="link-drag-line" />
-                    </svg>
-
                     <!-- Task Bars -->
-                    <div class="task-bars-container">
+                    <div class="task-bars-container" [style.height.px]="visibleActivities().length * rowHeight">
                         <!-- Dependency Lines SVG -->
                         <svg class="dependency-lines-container"
                             [style.height.px]="visibleActivities().length * rowHeight"
@@ -102,7 +90,7 @@
                                 <marker id="circleFS" markerWidth="6" markerHeight="6" refX="3" refY="3"
                                     markerUnits="userSpaceOnUse">
                                     <circle cx="3" cy="3" r="3" fill="#f033f0ff" />
-                                </marker>f033f0ff
+                                </marker>
                                 <marker id="circleFF" markerWidth="6" markerHeight="6" refX="3" refY="3"
                                     markerUnits="userSpaceOnUse">
                                     <circle cx="3" cy="3" r="3" fill="#51cf66" />
@@ -117,7 +105,7 @@
                                 </marker>
 
                                 <!-- End Arrow Markers -->
-                                <marker id="arrowFS" markerWidth="15" markerHeight="10" refX="0" refY="4" orient="auto"
+                                <marker id="arrowFS" markerWidth="15" markerHeight="10" refX="0" refY="4" leading="auto"
                                     markerUnits="userSpaceOnUse">
                                     <path d="M0,0 L0,8 L14,4 z" fill="#f033f0ff" />
                                 </marker>
@@ -134,7 +122,6 @@
                                     <path d="M0,0 L0,8 L14,4 z" fill="#fcc419" />
                                 </marker>
                             </defs>
-                            <!-- Existing Links -->
                             <!-- Existing Links -->
                             <path *ngFor="let link of dependencyLines()" [attr.d]="link.path" [attr.stroke]="link.color"
                                 [attr.marker-start]="'url(#circle' + link.type + ')'"

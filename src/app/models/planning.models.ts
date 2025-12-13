@@ -21,6 +21,8 @@ export interface Activity {
     // Baseline Fields
     baselineStartDate?: Date;
     baselineEndDate?: Date;
+    // Leveling Fields
+    levelingDelay?: number;
 }
 
 export interface ResourceItem {
@@ -36,6 +38,7 @@ export interface Resource {
     unit: string;
     costPerUnit: number;
     resourceTypeId: number;
+    limit?: number; // Max units available per day
 }
 export interface ResourceType {
     id: number;

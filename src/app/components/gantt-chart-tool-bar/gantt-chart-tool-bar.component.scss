@@ -54,4 +54,14 @@
             box-shadow: 0 0 8px rgba(252, 196, 25, 0.4);
         }
     }
+
+    &.btn-level {
+        border-color: #be4bdb;
+        color: #be4bdb;
+
+        &:hover {
+            background: rgba(190, 75, 219, 0.1);
+            box-shadow: 0 0 8px rgba(190, 75, 219, 0.4);
+        }
+    }
 }
