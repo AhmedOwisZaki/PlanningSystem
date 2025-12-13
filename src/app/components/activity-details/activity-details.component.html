@@ -8,12 +8,22 @@
     <div class="details-tabs">
         <button [class.active]="activeTab() === 'general'" (click)="setActiveTab('general')">General</button>
         <button [class.active]="activeTab() === 'resources'" (click)="setActiveTab('resources')">Resources</button>
+        <button [class.active]="activeTab() === 'relationships'"
+            (click)="setActiveTab('relationships')">Relationships</button>
     </div>
 
     <div class="details-content" *ngIf="activeTab() === 'general'">
         <div class="detail-item">
             <label>Name:</label>
-            <span>{{ selectedActivity()!.name }}</span>
+            <input type="text" [value]="selectedActivity()!.name" (change)="onNameChange($event)">
+        </div>
+        <div class="detail-item">
+            <label>Type:</label>
+            <select [value]="selectedActivity()!.type || 'Task'" (change)="onTypeChange($event)">
+                <option value="Task">Task Based</option>
+                <option value="StartMilestone">Start Milestone</option>
+                <option value="FinishMilestone">Finish Milestone</option>
+            </select>
         </div>
         <div class="detail-item">
             <label>Start Date:</label>
@@ -26,6 +36,20 @@
         <div class="detail-item">
             <label>End Date:</label>
             <span>{{ getEndDate(selectedActivity()!) | date:'mediumDate' }}</span>
+        </div>
+        <div class="detail-item" *ngIf="selectedActivity()!.baselineStartDate">
+            <label>Baseline Start:</label>
+            <span>{{ selectedActivity()!.baselineStartDate | date:'mediumDate' }}</span>
+        </div>
+        <div class="detail-item" *ngIf="selectedActivity()!.baselineEndDate">
+            <label>Baseline Finish:</label>
+            <span>{{ selectedActivity()!.baselineEndDate | date:'mediumDate' }}</span>
+        </div>
+        <div class="detail-item" *ngIf="selectedActivity()!.baselineStartDate">
+            <label>Variance:</label>
+            <span [style.color]="getVariance(selectedActivity()!) > 0 ? 'red' : 'green'">
+                {{ getVariance(selectedActivity()!) }} days
+            </span>
         </div>
         <div class="detail-item">
             <label>Progress:</label>
@@ -100,6 +124,63 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div class="details-content relationships-content" *ngIf="activeTab() === 'relationships'">
+        <div class="relationship-column">
+            <h4>Predecessors</h4>
+            <table class="resource-table">
+                <thead>
+                    <tr>
+                        <th>Activity</th>
+                        <th>Type</th>
+                        <th>Lag</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let dep of predecessors()">
+                        <td>{{ getActivityName(dep.sourceId) }}</td>
+                        <td>{{ dep.type }}</td>
+                        <td>
+                            <input type="number" [value]="dep.lag || 0" (change)="updateLag(dep.id, $event)"
+                                class="lag-input" style="width: 50px;">
+                        </td>
+                        <td>
+                            <button class="close-btn" style="font-size:1.2rem; width:20px; height:20px;"
+                                (click)="deleteDependency(dep.id)">×</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="relationship-column">
+            <h4>Successors</h4>
+            <table class="resource-table">
+                <thead>
+                    <tr>
+                        <th>Activity</th>
+                        <th>Type</th>
+                        <th>Lag</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let dep of successors()">
+                        <td>{{ getActivityName(dep.targetId) }}</td>
+                        <th>{{ dep.type }}</th>
+                        <td>
+                            <input type="number" [value]="dep.lag || 0" (change)="updateLag(dep.id, $event)"
+                                class="lag-input" style="width: 50px;">
+                        </td>
+                        <td>
+                            <button class="close-btn" style="font-size:1.2rem; width:20px; height:20px;"
+                                (click)="deleteDependency(dep.id)">×</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>

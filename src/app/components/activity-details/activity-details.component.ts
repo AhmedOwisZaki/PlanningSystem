@@ -19,10 +19,21 @@ export class ActivityDetailsComponent implements OnDestroy {
 
     // Details panel resize state
     detailsPanelHeight = signal(200); // Default height in pixels
-    activeTab = signal<'general' | 'resources'>('general');
+    activeTab = signal<'general' | 'resources' | 'relationships'>('general');
 
     // Resources from service
     resources = this.planningService.resources;
+
+    // Relationship Logic
+    predecessors = computed(() => {
+        const act = this.selectedActivity();
+        return act ? this.planningService.getPredecessors(act.id) : [];
+    });
+
+    successors = computed(() => {
+        const act = this.selectedActivity();
+        return act ? this.planningService.getSuccessors(act.id) : [];
+    });
 
     private isResizingPanel = false;
     private resizeStartY = 0;
@@ -35,7 +46,40 @@ export class ActivityDetailsComponent implements OnDestroy {
         this.removeResizeListeners();
     }
 
-    setActiveTab(tab: 'general' | 'resources') {
+    getActivityName(id: number): string {
+        const act = this.planningService.activities().find(a => a.id === id);
+        return act ? act.name : 'Unknown';
+    }
+
+    onNameChange(event: Event) {
+        const value = (event.target as HTMLInputElement).value;
+        if (this.selectedActivity()) {
+            this.planningService.updateActivity({ ...this.selectedActivity()!, name: value });
+        }
+    }
+
+    onTypeChange(event: Event) {
+        const value = (event.target as HTMLSelectElement).value as any;
+        if (this.selectedActivity()) {
+            this.planningService.updateActivityType(this.selectedActivity()!.id, value);
+        }
+    }
+
+    updateLag(depId: number, event: Event) {
+        const input = event.target as HTMLInputElement;
+        const lag = parseInt(input.value, 10);
+        if (!isNaN(lag)) {
+            this.planningService.updateDependency(depId, { lag });
+        }
+    }
+
+    deleteDependency(depId: number) {
+        if (confirm('Delete relationship?')) {
+            this.planningService.removeDependency(depId);
+        }
+    }
+
+    setActiveTab(tab: 'general' | 'resources' | 'relationships') {
         this.activeTab.set(tab);
     }
 
@@ -94,6 +138,14 @@ export class ActivityDetailsComponent implements OnDestroy {
         const endDate = new Date(activity.startDate);
         endDate.setDate(endDate.getDate() + activity.duration - 1);
         return endDate;
+    }
+
+    getVariance(activity: any): number {
+        if (!activity.baselineStartDate) return 0;
+        const start = new Date(activity.startDate);
+        const baseline = new Date(activity.baselineStartDate);
+        const diff = start.getTime() - baseline.getTime();
+        return Math.round(diff / (1000 * 3600 * 24));
     }
 
     // Details Panel Resize Handlers

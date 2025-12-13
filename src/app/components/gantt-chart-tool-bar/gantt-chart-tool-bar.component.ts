@@ -49,4 +49,16 @@ export class GanttChartToolBarComponent {
     canRedo(): boolean {
         return this.planningService.canRedo();
     }
+
+    onSchedule() {
+        this.planningService.scheduleProject();
+    }
+
+    onBaseline(event: MouseEvent) {
+        if (event.shiftKey) {
+            this.planningService.clearBaseline();
+        } else {
+            this.planningService.createBaseline();
+        }
+    }
 }

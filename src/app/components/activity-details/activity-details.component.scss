@@ -286,3 +286,30 @@
         }
     }
 }
+
+/* Relationships Content */
+.details-content.relationships-content {
+    display: flex !important;
+    padding: 0;
+
+    .relationship-column {
+        flex: 1;
+        padding: 1rem;
+        border-right: 1px solid #dee2e6;
+        overflow-y: auto;
+
+        &:last-child {
+            border-right: none;
+        }
+
+        h4 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            color: #495057;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #339af0;
+            display: inline-block;
+            font-size: 0.95rem;
+        }
+    }
+}

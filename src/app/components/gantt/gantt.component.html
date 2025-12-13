@@ -150,10 +150,28 @@
                         <div class="task-bar-wrapper" *ngFor="let activity of visibleActivities(); let i = index"
                             [style.top.px]="i * rowHeight" [style.height.px]="rowHeight">
 
-                            <div class="task-bar" [class.parent-task-bar]="isParentActivity(activity)"
+                            <!-- Baseline Bar -->
+                            <div class="baseline-bar" *ngIf="activity.baselineStartDate"
+                                [style.left.px]="getBaselineLeft(activity.baselineStartDate)"
+                                [style.width.px]="getBaselineWidth(activity.baselineStartDate, activity.baselineEndDate)">
+                            </div>
+
+                            <!-- Milestone Diamond -->
+                            <div class="milestone-diamond"
+                                *ngIf="activity.type === 'StartMilestone' || activity.type === 'FinishMilestone'"
+                                [class.selected]="selectedActivity()?.id === activity.id"
+                                [class.critical]="activity.isCritical" (mousedown)="onTaskMouseDown($event, activity)"
+                                (click)="selectActivity(activity, $event)"
+                                [style.left.px]="getTaskLeft(activity.startDate)" [style.top.px]="5">
+                                <span class="task-label">{{ activity.name }}</span>
+                            </div>
+
+                            <!-- Regular Task Bar -->
+                            <div class="task-bar" *ngIf="!activity.type || activity.type === 'Task'"
+                                [class.parent-task-bar]="isParentActivity(activity)"
                                 [class.zoom-large]="zoomLevel() > .5"
                                 [class.selected]="selectedActivity()?.id === activity.id"
-                                (mousedown)="onTaskMouseDown($event, activity)"
+                                [class.critical]="activity.isCritical" (mousedown)="onTaskMouseDown($event, activity)"
                                 (click)="selectActivity(activity, $event)" (dblclick)="openEditModal(activity)"
                                 [style.left.px]="getTaskLeft(activity.startDate)"
                                 [style.width.px]="getTaskWidth(activity.duration)">

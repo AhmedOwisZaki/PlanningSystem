@@ -15,4 +15,13 @@
             <span>↷</span>
         </button>
     </div>
+    <div class="toolbar-group">
+        <button class="toolbar-btn" title="Schedule (F9)" (click)="onSchedule()">
+            <span>📅</span>
+        </button>
+        <button class="toolbar-btn btn-baseline" title="Capture Baseline (Shift+Click to Clear)"
+            (click)="onBaseline($event)">
+            <span>🎯</span>
+        </button>
+    </div>
 </div>

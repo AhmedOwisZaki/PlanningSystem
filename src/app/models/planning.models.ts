@@ -7,6 +7,20 @@ export interface Activity {
     parentId?: number | null;
     isExpanded?: boolean;
     resourceItems?: ResourceItem[];
+    type?: 'Task' | 'StartMilestone' | 'FinishMilestone';
+
+    // CPM Calculated Fields
+    earlyStart?: Date;
+    earlyFinish?: Date;
+    lateStart?: Date;
+    lateFinish?: Date;
+    totalFloat?: number;
+    freeFloat?: number;
+    isCritical?: boolean;
+
+    // Baseline Fields
+    baselineStartDate?: Date;
+    baselineEndDate?: Date;
 }
 
 export interface ResourceItem {
@@ -34,6 +48,7 @@ export interface Dependency {
     sourceId: number;
     targetId: number;
     type: 'FS' | 'FF' | 'SS' | 'SF';
+    lag?: number; // Lag in days
 }
 
 export interface ProjectState {

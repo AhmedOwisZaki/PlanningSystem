@@ -139,6 +139,21 @@ export class GanttComponent {
     return duration * this.dayWidth * this.zoomLevel();
   }
 
+  getBaselineLeft(date: Date): number {
+    if (!date) return 0;
+    const start = this.planningService.projectStartDate();
+    const diffTime = new Date(date).getTime() - start.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays * this.dayWidth * this.zoomLevel();
+  }
+
+  getBaselineWidth(start: Date, end: Date): number {
+    if (!start || !end) return 0;
+    const diffTime = new Date(end).getTime() - new Date(start).getTime();
+    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return days * this.dayWidth * this.zoomLevel();
+  }
+
   // Computed visible activities (respecting expand/collapse)
   visibleActivities = computed(() => {
     const allActivities = this.activities();

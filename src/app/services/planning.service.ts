@@ -270,6 +270,13 @@ export class PlanningService {
         }));
     }
 
+    updateDependency(id: number, updates: Partial<Dependency>) {
+        this.state.update(current => ({
+            ...current,
+            dependencies: current.dependencies.map(d => d.id === id ? { ...d, ...updates } : d)
+        }));
+    }
+
     addResource(resource: any) {
         const currentResources = this.state().resources || [];
         const newId = currentResources.length > 0 ? Math.max(...currentResources.map(r => r.id)) + 1 : 101;
@@ -328,6 +335,297 @@ export class PlanningService {
                 a.id === activityId ? { ...a, isExpanded: !a.isExpanded } : a
             )
         }));
+    }
+
+    // CPM Scheduling Logic
+    scheduleProject() {
+        const state = this.state();
+        let activities = [...state.activities]; // Clone for mutation during calc
+        const dependencies = state.dependencies;
+
+        // 1. Map for easy access
+        const actMap = new Map<number, Activity>();
+        activities.forEach(a => actMap.set(a.id, a));
+
+        // 2. Predecessor/Successor Maps
+        const predecessors = new Map<number, Dependency[]>();
+        const successors = new Map<number, Dependency[]>();
+
+        dependencies.forEach(dep => {
+            if (!predecessors.has(dep.targetId)) predecessors.set(dep.targetId, []);
+            predecessors.get(dep.targetId)!.push(dep);
+
+            if (!successors.has(dep.sourceId)) successors.set(dep.sourceId, []);
+            successors.get(dep.sourceId)!.push(dep);
+        });
+
+        // 3. Topological Sort (Kahn's algorithm roughly, or just level based)
+        // For simple CPM, we can just iterate if we ensure we process ready nodes.
+        // Actually, easiest is to just compute Early Dates then Late Dates.
+        // We need an order where predecessors are processed before successors.
+
+        // Simple Topological Sort
+        const sortedIds: number[] = [];
+        const visited = new Set<number>();
+        const tempVisited = new Set<number>();
+
+        const visit = (id: number) => {
+            if (tempVisited.has(id)) throw new Error("Cycle detected");
+            if (!visited.has(id)) {
+                tempVisited.add(id);
+                const succs = successors.get(id) || [];
+                succs.forEach(dep => visit(dep.targetId));
+                tempVisited.delete(id);
+                visited.add(id);
+                sortedIds.unshift(id); // Post-order, so unshift gives Topological order
+            }
+        };
+
+        try {
+            activities.forEach(a => {
+                // Only sort leaf nodes or treat parents as summaries?
+                // Standard CPM: Only leaf nodes (activities) have duration/logic. Parents summarize.
+                // For this implementation, we'll treat all as tasks but ignore parent/child containment for logic 
+                // UNLESS we want strict WBS rollups. Let's start with activity-level logic ignoring WBS for calc.
+                if (!visited.has(a.id)) visit(a.id);
+            });
+        } catch (e) {
+            console.error("Scheduling failed: Cycle detected");
+            alert("Scheduling failed: Cycle detected in relationships.");
+            return;
+        }
+
+        // 4. Forward Pass (Early Dates)
+        const projectStart = new Date(state.projectStartDate);
+
+        sortedIds.forEach(id => {
+            const act = actMap.get(id)!;
+            // Milestone Logic: Enforce 0 duration if Milestone
+            if (act.type === 'StartMilestone' || act.type === 'FinishMilestone') {
+                act.duration = 0;
+            }
+
+            if (this.isParent(id)) return; // Skip summaries for logic
+
+            let earlyStart = new Date(projectStart);
+
+            const preds = predecessors.get(id) || [];
+            preds.forEach(dep => {
+                const src = actMap.get(dep.sourceId)!;
+                if (!src.earlyFinish) return;
+
+                let potentialStart = new Date(src.earlyFinish);
+                const lag = (dep.lag || 0);
+
+                if (dep.type === 'FS') {
+                    potentialStart = new Date(src.earlyFinish);
+                } else if (dep.type === 'SS') {
+                    potentialStart = new Date(src.earlyStart!);
+                } else if (dep.type === 'FF') {
+                    const finishDate = new Date(src.earlyFinish);
+                    finishDate.setDate(finishDate.getDate() + lag);
+                    const derivedStart = new Date(finishDate);
+                    // For milestones, duration is 0, so derivedStart = finishDate
+                    derivedStart.setDate(derivedStart.getDate() - act.duration);
+                    potentialStart = derivedStart;
+                }
+
+                if (dep.type !== 'FF') {
+                    potentialStart.setDate(potentialStart.getDate() + lag);
+                }
+
+                if (potentialStart > earlyStart) {
+                    earlyStart = potentialStart;
+                }
+            });
+
+            act.earlyStart = earlyStart;
+            act.startDate = earlyStart;
+
+            const earlyFinish = new Date(earlyStart);
+            earlyFinish.setDate(earlyFinish.getDate() + act.duration);
+            act.earlyFinish = earlyFinish;
+        });
+
+        // 5. Backward Pass (Late Dates & Float)
+        let projectFinish = new Date(projectStart);
+        activities.forEach(a => {
+            if (!this.isParent(a.id) && a.earlyFinish && a.earlyFinish > projectFinish) {
+                projectFinish = new Date(a.earlyFinish);
+            }
+        });
+
+        this.state.update(s => ({ ...s, projectEndDate: projectFinish }));
+
+        [...sortedIds].reverse().forEach(id => {
+            const act = actMap.get(id)!;
+            if (this.isParent(id)) return;
+
+            let lateFinish = new Date(projectFinish);
+            const succs = successors.get(id) || [];
+            if (succs.length > 0) {
+                lateFinish = new Date(8640000000000000); // Far future
+            }
+
+            succs.forEach(dep => {
+                const tgt = actMap.get(dep.targetId)!;
+                if (!tgt.lateStart) return;
+
+                let potentialFinish = new Date(tgt.lateStart);
+                const lag = (dep.lag || 0);
+
+                if (dep.type === 'FS') {
+                    potentialFinish = new Date(tgt.lateStart);
+                    potentialFinish.setDate(potentialFinish.getDate() - lag);
+                } else if (dep.type === 'SS') {
+                    const derivedStart = new Date(tgt.lateStart);
+                    derivedStart.setDate(derivedStart.getDate() - lag);
+                    potentialFinish = new Date(derivedStart);
+                    potentialFinish.setDate(potentialFinish.getDate() + act.duration);
+                }
+
+                if (potentialFinish < lateFinish) {
+                    lateFinish = potentialFinish;
+                }
+            });
+
+            act.lateFinish = lateFinish;
+            const lateStart = new Date(lateFinish);
+            lateStart.setDate(lateStart.getDate() - act.duration);
+            act.lateStart = lateStart;
+
+            const diffTime = act.lateStart.getTime() - act.earlyStart!.getTime();
+            act.totalFloat = Math.round(diffTime / (1000 * 3600 * 24));
+            act.isCritical = act.totalFloat <= 0;
+        });
+
+        // 6. Rollup Summaries (WBS)
+        this.rollupWBS(activities);
+
+        this.state.update(s => ({
+            ...s,
+            activities: activities
+        }));
+
+        this.saveToHistory();
+    }
+
+    // WBS Rollup Helper (Recursive Bottom-Up)
+    private rollupWBS(activities: Activity[]) {
+        const activityMap = new Map<number, Activity>();
+        activities.forEach(a => activityMap.set(a.id, a));
+
+        // Get all parents (activities with children)
+        // We need to process from bottom of hierarchy up.
+        // A simple way is to calculate level, sort by level desc.
+
+        // Compute levels dynamically since we don't store them strictly
+        const getLevel = (id: number): number => {
+            const a = activityMap.get(id);
+            if (!a || a.parentId == null) return 0;
+            return 1 + getLevel(a.parentId);
+        };
+
+        const activitieswithLevel = activities.map(a => ({ a, level: getLevel(a.id) }));
+        activitieswithLevel.sort((x, y) => y.level - x.level); // Deepest first
+
+        // Set of processed IDs to avoid double work if strictly hierarchical
+        const processed = new Set<number>();
+
+        for (const { a } of activitieswithLevel) {
+            // If it is a parent (has children), calculate based on children
+            // Need to check if it IS a parent.
+            const children = activities.filter(child => child.parentId === a.id);
+
+            if (children.length > 0) {
+                // It's a summary task
+                let minStart: Date | null = null;
+                let maxEnd: Date | null = null;
+
+                children.forEach(child => {
+                    const childStart = child.startDate ? new Date(child.startDate) : null;
+                    const childEnd = child.startDate ? new Date(new Date(child.startDate).getTime() + child.duration * 24 * 3600 * 1000) : null;
+                    // Use calculated dates if available (earlyStart/earlyFinish)
+                    const s = child.earlyStart ? new Date(child.earlyStart) : childStart;
+                    const e = child.earlyFinish ? new Date(child.earlyFinish) : childEnd;
+
+                    if (s) {
+                        if (!minStart || s < minStart) minStart = s;
+                    }
+                    if (e) {
+                        if (!maxEnd || e > maxEnd) maxEnd = e;
+                    }
+                });
+
+                if (minStart && maxEnd) {
+                    a.startDate = minStart!;
+                    a.earlyStart = minStart!;
+                    a.earlyFinish = maxEnd!; // Summary finish needed?
+
+                    const diffTime = (maxEnd as Date).getTime() - (minStart as Date).getTime();
+                    a.duration = Math.ceil(diffTime / (1000 * 3600 * 24));
+
+                    // Also rollup progress? (Weighted by duration)
+                    let totalDuration = 0;
+                    let weightedProgress = 0;
+                    children.forEach(c => {
+                        totalDuration += c.duration;
+                        weightedProgress += c.duration * c.percentComplete;
+                    });
+                    a.percentComplete = totalDuration > 0 ? Math.round(weightedProgress / totalDuration) : 0;
+                }
+            }
+        }
+    }
+
+    updateActivityType(id: number, type: 'Task' | 'StartMilestone' | 'FinishMilestone') {
+        this.state.update(current => ({
+            ...current,
+            activities: current.activities.map(a => a.id === id ? { ...a, type } : a)
+        }));
+        this.saveToHistory();
+    }
+
+    // Baseline Management
+    createBaseline() {
+        if (!confirm("Are you sure you want to capture the current schedule as the baseline? This will overwrite any existing baseline.")) return;
+
+        this.state.update(current => {
+            const activities = current.activities.map(a => {
+                const start = new Date(a.startDate);
+                const end = new Date(start);
+                end.setDate(end.getDate() + a.duration);
+                return {
+                    ...a,
+                    baselineStartDate: start,
+                    baselineEndDate: end
+                };
+            });
+            return { ...current, activities };
+        });
+        this.saveToHistory();
+    }
+
+    clearBaseline() {
+        if (!confirm("Are you sure you want to clear the baseline?")) return;
+
+        this.state.update(current => {
+            const activities = current.activities.map(a => {
+                const { baselineStartDate, baselineEndDate, ...rest } = a;
+                return rest;
+            });
+            return { ...current, activities };
+        });
+        this.saveToHistory();
+    }
+
+    // Relationship Helpers
+    getPredecessors(activityId: number): Dependency[] {
+        return this.state().dependencies.filter(d => d.targetId === activityId);
+    }
+
+    getSuccessors(activityId: number): Dependency[] {
+        return this.state().dependencies.filter(d => d.sourceId === activityId);
     }
 
     isParent(activityId: number): boolean {

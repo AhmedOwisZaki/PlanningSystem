@@ -44,4 +44,14 @@
             border-color: rgba(255, 255, 255, 0.3);
         }
     }
+
+    &.btn-baseline {
+        border-color: #fcc419;
+        color: #fcc419;
+
+        &:hover {
+            background: rgba(252, 196, 25, 0.1);
+            box-shadow: 0 0 8px rgba(252, 196, 25, 0.4);
+        }
+    }
 }
