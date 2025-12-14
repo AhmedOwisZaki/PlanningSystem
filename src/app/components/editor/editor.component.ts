@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { PlanningService } from '../../services/planning.service';
 import { Resource } from '../../models/planning.models';
 import { ResourceUsageChartComponent } from '../resource-usage-chart/resource-usage-chart.component';
+import { XerExporterService } from '../../services/xer-exporter.service';
 
 @Component({
     selector: 'app-editor',
@@ -14,6 +15,8 @@ import { ResourceUsageChartComponent } from '../resource-usage-chart/resource-us
 })
 export class EditorComponent {
     planningService = inject(PlanningService);
+    xerExporter = inject(XerExporterService);
+
     activeTab: 'project' | 'resources' = 'resources';
     resources = this.planningService.resources;
     resourceTypes = this.planningService.resourceTypes;
@@ -22,6 +25,7 @@ export class EditorComponent {
     projectStartDate = this.planningService.projectStartDate;
     projectEndDate = this.planningService.projectEndDate;
     activities = this.planningService.activities;
+    projectName = computed(() => this.planningService.state().projectName || 'Current Project');
 
     resourcesByType = computed(() => {
         const types = this.resourceTypes() || [];
@@ -100,5 +104,11 @@ export class EditorComponent {
             this.planningService.addResource(this.newResource);
             this.showAddResourceForm = false;
         }
+    }
+
+    exportToXER() {
+        const projectState = this.planningService.state();
+        const filename = `${projectState.projectName || 'project'}.xer`;
+        this.xerExporter.downloadXER(projectState, filename);
     }
 }

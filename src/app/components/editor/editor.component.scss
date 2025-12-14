@@ -61,6 +61,74 @@
     background: white;
 }
 
+/* Project Tab Styles */
+.project-pane {
+    h3 {
+        margin: 0 0 1.5rem 0;
+        color: #333;
+        font-size: 1.25rem;
+    }
+
+    h4 {
+        margin: 2rem 0 1rem 0;
+        color: #495057;
+        font-size: 1rem;
+        font-weight: 600;
+    }
+}
+
+.project-info {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #e9ecef;
+
+        &:last-child {
+            border-bottom: none;
+        }
+
+        label {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        span {
+            color: #212529;
+        }
+    }
+}
+
+.export-section {
+    .btn-export {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        width: 100%;
+
+        &:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        &:active {
+            transform: translateY(0);
+        }
+    }
+}
+
 /* Resources Header */
 .resources-header {
     display: flex;

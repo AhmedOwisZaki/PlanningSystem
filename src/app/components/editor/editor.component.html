@@ -11,9 +11,35 @@
     <!-- Tab Content -->
     <div class="editor-content" (click)="deselectResource()">
 
-        <!-- PROJECT TAB (Placeholder) -->
-        <div *ngIf="activeTab === 'project'" class="tab-pane">
-            <p>Project details and global settings will go here.</p>
+        <!-- PROJECT TAB -->
+        <div *ngIf="activeTab === 'project'" class="tab-pane project-pane">
+            <h3>Project Settings</h3>
+
+            <div class="project-info">
+                <div class="info-row">
+                    <label>Project Name:</label>
+                    <span>{{ projectName() }}</span>
+                </div>
+                <div class="info-row">
+                    <label>Start Date:</label>
+                    <span>{{ projectStartDate() | date:'MMM d, y' }}</span>
+                </div>
+                <div class="info-row">
+                    <label>End Date:</label>
+                    <span>{{ projectEndDate() | date:'MMM d, y' }}</span>
+                </div>
+                <div class="info-row">
+                    <label>Total Activities:</label>
+                    <span>{{ activities().length }}</span>
+                </div>
+            </div>
+
+            <div class="export-section">
+                <h4>Export</h4>
+                <button class="btn-export" (click)="exportToXER()">
+                    📥 Export to Primavera P6 (.xer)
+                </button>
+            </div>
         </div>
 
         <!-- RESOURCES TAB -->
