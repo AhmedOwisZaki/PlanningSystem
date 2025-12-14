@@ -138,7 +138,6 @@ export class PlanningService {
 
     constructor() {
         this.assignMockResources();
-        this.scheduleProject();
         this.saveToHistory();
     }
 
@@ -149,7 +148,7 @@ export class PlanningService {
             dependencies: newState.dependencies || [],
             resources: newState.resources || []
         });
-        this.scheduleProject();
+        // Don't auto-schedule on import - let user click Schedule button
         this.saveToHistory();
     }
 
