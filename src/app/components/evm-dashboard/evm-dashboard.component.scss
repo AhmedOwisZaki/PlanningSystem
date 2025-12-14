@@ -1,0 +1,58 @@
+.evm-dashboard {
+    padding: 1.5rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+    h3 {
+        margin: 0 0 1.5rem 0;
+        color: #333;
+        font-size: 1.25rem;
+    }
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.metric-card {
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 1rem;
+    border-left: 4px solid #dee2e6;
+    transition: all 0.3s ease;
+
+    &:hover {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    &.good {
+        border-left-color: #28a745;
+        background: #f0f9f4;
+    }
+
+    &.warning {
+        border-left-color: #ffc107;
+        background: #fffbf0;
+    }
+
+    &.bad {
+        border-left-color: #dc3545;
+        background: #fef5f5;
+    }
+}
+
+.metric-label {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.metric-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #212529;
+}

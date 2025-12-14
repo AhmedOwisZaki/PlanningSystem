@@ -19,7 +19,7 @@ export class ActivityDetailsComponent implements OnDestroy {
 
     // Details panel resize state
     detailsPanelHeight = signal(200); // Default height in pixels
-    activeTab = signal<'general' | 'resources' | 'relationships' | 'steps'>('general');
+    activeTab = signal<'general' | 'resources' | 'relationships' | 'steps' | 'cost'>('general');
 
     // Resources from service
     resources = this.planningService.resources;
@@ -79,7 +79,7 @@ export class ActivityDetailsComponent implements OnDestroy {
         }
     }
 
-    setActiveTab(tab: 'general' | 'resources' | 'relationships' | 'steps') {
+    setActiveTab(tab: 'general' | 'resources' | 'relationships' | 'steps' | 'cost') {
         this.activeTab.set(tab);
     }
 
@@ -216,5 +216,33 @@ export class ActivityDetailsComponent implements OnDestroy {
     private removeResizeListeners() {
         document.removeEventListener('mousemove', this.onPanelResize);
         document.removeEventListener('mouseup', this.onPanelResizeEnd);
+    }
+
+    onBudgetChange(event: Event) {
+        const value = parseFloat((event.target as HTMLInputElement).value);
+        if (this.selectedActivity() && !isNaN(value)) {
+            this.planningService.updateActivity({
+                ...this.selectedActivity()!,
+                budgetAtCompletion: value
+            });
+        }
+    }
+
+    onActualCostChange(event: Event) {
+        const value = parseFloat((event.target as HTMLInputElement).value);
+        if (this.selectedActivity() && !isNaN(value)) {
+            this.planningService.updateActivity({
+                ...this.selectedActivity()!,
+                actualCost: value
+            });
+        }
+    }
+
+    getEarnedValue(): number {
+        const activity = this.selectedActivity();
+        if (!activity) return 0;
+        const bac = activity.budgetAtCompletion || 0;
+        const pc = activity.percentComplete || 0;
+        return bac * (pc / 100);
     }
 }

@@ -1,0 +1,59 @@
+<div class="evm-dashboard">
+    <h3>Earned Value Management</h3>
+
+    <div class="metrics-grid">
+        <!-- Primary Metrics -->
+        <div class="metric-card">
+            <div class="metric-label">Planned Value (PV)</div>
+            <div class="metric-value">{{ evmMetrics().pv | currency }}</div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-label">Earned Value (EV)</div>
+            <div class="metric-value">{{ evmMetrics().ev | currency }}</div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-label">Actual Cost (AC)</div>
+            <div class="metric-value">{{ evmMetrics().ac | currency }}</div>
+        </div>
+
+        <!-- Variances -->
+        <div class="metric-card" [ngClass]="getPerformanceClass(evmMetrics().sv)">
+            <div class="metric-label">Schedule Variance (SV)</div>
+            <div class="metric-value">{{ evmMetrics().sv | currency }}</div>
+        </div>
+
+        <div class="metric-card" [ngClass]="getPerformanceClass(evmMetrics().cv)">
+            <div class="metric-label">Cost Variance (CV)</div>
+            <div class="metric-value">{{ evmMetrics().cv | currency }}</div>
+        </div>
+
+        <!-- Performance Indices -->
+        <div class="metric-card" [ngClass]="getPerformanceClass(evmMetrics().spi, true)">
+            <div class="metric-label">SPI</div>
+            <div class="metric-value">{{ evmMetrics().spi }}</div>
+        </div>
+
+        <div class="metric-card" [ngClass]="getPerformanceClass(evmMetrics().cpi, true)">
+            <div class="metric-label">CPI</div>
+            <div class="metric-value">{{ evmMetrics().cpi }}</div>
+        </div>
+
+        <!-- Forecasts -->
+        <div class="metric-card">
+            <div class="metric-label">Budget at Completion (BAC)</div>
+            <div class="metric-value">{{ evmMetrics().bac | currency }}</div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-label">Estimate at Completion (EAC)</div>
+            <div class="metric-value">{{ evmMetrics().eac | currency }}</div>
+        </div>
+
+        <div class="metric-card" [ngClass]="getPerformanceClass(evmMetrics().vac)">
+            <div class="metric-label">Variance at Completion (VAC)</div>
+            <div class="metric-value">{{ evmMetrics().vac | currency }}</div>
+        </div>
+    </div>
+</div>

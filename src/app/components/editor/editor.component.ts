@@ -5,11 +5,12 @@ import { PlanningService } from '../../services/planning.service';
 import { Resource } from '../../models/planning.models';
 import { ResourceUsageChartComponent } from '../resource-usage-chart/resource-usage-chart.component';
 import { XerExporterService } from '../../services/xer-exporter.service';
+import { SCurvesChartComponent } from '../s-curves-chart/s-curves-chart.component';
 
 @Component({
     selector: 'app-editor',
     standalone: true,
-    imports: [CommonModule, FormsModule, ResourceUsageChartComponent],
+    imports: [CommonModule, FormsModule, ResourceUsageChartComponent, SCurvesChartComponent],
     templateUrl: './editor.component.html',
     styleUrls: ['./editor.component.scss']
 })
@@ -17,7 +18,7 @@ export class EditorComponent {
     planningService = inject(PlanningService);
     xerExporter = inject(XerExporterService);
 
-    activeTab: 'project' | 'resources' = 'resources';
+    activeTab: 'project' | 'resources' | 'calendars' = 'resources';
     resources = this.planningService.resources;
     resourceTypes = this.planningService.resourceTypes;
 
@@ -26,6 +27,12 @@ export class EditorComponent {
     projectEndDate = this.planningService.projectEndDate;
     activities = this.planningService.activities;
     projectName = computed(() => this.planningService.state().projectName || 'Current Project');
+
+    // Calendars
+    calendars = computed(() => this.planningService.state().calendars || []);
+
+    // S-Curves Modal
+    showSCurves = signal(false);
 
     resourcesByType = computed(() => {
         const types = this.resourceTypes() || [];
@@ -48,7 +55,7 @@ export class EditorComponent {
     selectedResource = signal<Resource | null>(null);
     showProfile = signal(false);
 
-    toggleTab(tab: 'project' | 'resources') {
+    toggleTab(tab: 'project' | 'resources' | 'calendars') {
         this.activeTab = tab;
         this.selectedResource.set(null); // Clear selection when switching tabs if desired
         this.showProfile.set(false);
@@ -110,5 +117,19 @@ export class EditorComponent {
         const projectState = this.planningService.state();
         const filename = `${projectState.projectName || 'project'}.xer`;
         this.xerExporter.downloadXER(projectState, filename);
+    }
+
+    getWorkDaysText(workDays: boolean[]): string {
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const workingDays = days.filter((_, i) => workDays[i]);
+        return workingDays.join(', ');
+    }
+
+    openSCurves() {
+        this.showSCurves.set(true);
+    }
+
+    closeSCurves() {
+        this.showSCurves.set(false);
     }
 }

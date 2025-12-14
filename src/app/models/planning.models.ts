@@ -8,7 +8,9 @@ export interface Activity {
     isExpanded?: boolean;
     resourceItems?: ResourceItem[];
     type?: 'Task' | 'StartMilestone' | 'FinishMilestone';
-
+    // Earned Value Management fields
+    budgetAtCompletion?: number; // Planned total budget for the activity (BAC)
+    actualCost?: number; // Actual cost incurred for the activity (AC)
     // CPM Calculated Fields
     earlyStart?: Date;
     earlyFinish?: Date;
@@ -17,16 +19,16 @@ export interface Activity {
     totalFloat?: number;
     freeFloat?: number;
     isCritical?: boolean;
-
     // Baseline Fields
     baselineStartDate?: Date;
     baselineEndDate?: Date;
     // Leveling Fields
     levelingDelay?: number;
-
     // Activity Steps (P6)
     steps?: ActivityStep[];
     earningType?: 'Duration' | 'Physical' | 'Steps';
+    // Calendar
+    calendarId?: number;
 }
 
 export interface ActivityStep {
@@ -51,10 +53,21 @@ export interface Resource {
     resourceTypeId: number;
     limit?: number; // Max units available per day
 }
+
 export interface ResourceType {
     id: number;
     name: string;
     description: string;
+}
+
+export interface Calendar {
+    id: number;
+    name: string;
+    isDefault: boolean;
+    workDays: boolean[]; // [Sun, Mon, Tue, Wed, Thu, Fri, Sat]
+    workHoursPerDay: number;
+    holidays: Date[];
+    description?: string;
 }
 
 export interface Dependency {
@@ -74,4 +87,8 @@ export interface ProjectState {
     resourceTypes?: ResourceType[];
     projectName?: string;
     projectDescription?: string;
+    calendars?: Calendar[];
+    defaultCalendarId?: number;
+    projectBudget?: number;
+    statusDate?: Date;
 }

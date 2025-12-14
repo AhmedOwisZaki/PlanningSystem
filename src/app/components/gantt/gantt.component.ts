@@ -5,11 +5,12 @@ import { PlanningService } from '../../services/planning.service';
 import { ActivityDetailsComponent } from '../activity-details/activity-details.component';
 import { EditorComponent } from '../editor/editor.component';
 import { ResourceUsageProfileComponent } from '../resource-usage-profile/resource-usage-profile.component';
+import { EVMDashboardComponent } from '../evm-dashboard/evm-dashboard.component';
 
 @Component({
   selector: 'app-gantt',
   standalone: true,
-  imports: [CommonModule, FormsModule, ActivityDetailsComponent, EditorComponent, ResourceUsageProfileComponent],
+  imports: [CommonModule, FormsModule, ActivityDetailsComponent, EditorComponent, ResourceUsageProfileComponent, EVMDashboardComponent],
   templateUrl: './gantt.component.html',
   styleUrls: ['./gantt.component.scss']
 })

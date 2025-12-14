@@ -11,6 +11,7 @@
         <button [class.active]="activeTab() === 'relationships'"
             (click)="setActiveTab('relationships')">Relationships</button>
         <button [class.active]="activeTab() === 'steps'" (click)="setActiveTab('steps')">Steps</button>
+        <button [class.active]="activeTab() === 'cost'" (click)="setActiveTab('cost')">Cost</button>
     </div>
 
     <div class="details-content" *ngIf="activeTab() === 'general'">

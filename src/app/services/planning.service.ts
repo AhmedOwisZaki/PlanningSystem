@@ -112,7 +112,19 @@ export class PlanningService {
             { id: 102, name: 'Senior Developer', unit: 'hour', costPerUnit: 120, resourceTypeId: 1 },
             { id: 103, name: 'Concrete', unit: 'm3', costPerUnit: 200, resourceTypeId: 3 },
             { id: 104, name: 'Excavator', unit: 'day', costPerUnit: 1200, resourceTypeId: 2 }
-        ]
+        ],
+        calendars: [
+            {
+                id: 1,
+                name: 'Standard Work Week',
+                isDefault: true,
+                workDays: [false, true, true, true, true, true, false], // Sun-Sat
+                workHoursPerDay: 8,
+                holidays: [],
+                description: '5-day work week, Monday-Friday'
+            }
+        ],
+        defaultCalendarId: 1
     });
 
     // Selectors
@@ -903,5 +915,102 @@ export class PlanningService {
 
     isParent(activityId: number): boolean {
         return this.state().activities.some(a => a.parentId === activityId);
+    }
+
+    // Calendar Utilities
+    getCalendar(calendarId?: number): any {
+        const calendars = this.state().calendars || [];
+        const id = calendarId || this.state().defaultCalendarId || 1;
+        return calendars.find(c => c.id === id) || calendars[0];
+    }
+
+    isWorkingDay(date: Date, calendarId?: number): boolean {
+        const calendar = this.getCalendar(calendarId);
+        if (!calendar) return true;
+
+        const dateStr = date.toDateString();
+        if (calendar.holidays?.some((h: Date) => new Date(h).toDateString() === dateStr)) {
+            return false;
+        }
+
+        const dayOfWeek = date.getDay();
+        return calendar.workDays[dayOfWeek];
+    }
+
+    addWorkingDays(startDate: Date, days: number, calendarId?: number): Date {
+        const result = new Date(startDate);
+        let daysAdded = 0;
+
+        while (daysAdded < days) {
+            result.setDate(result.getDate() + 1);
+            if (this.isWorkingDay(result, calendarId)) {
+                daysAdded++;
+            }
+        }
+
+        return result;
+    }
+
+    // EVM Calculation
+    // EVM Calculation
+    calculateEVM(statusDate?: Date): any {
+        const dataDate = statusDate || new Date();
+        const activities = this.activities();
+
+        let pv = 0, ev = 0, ac = 0;
+
+        activities.forEach(activity => {
+            // Use budgetAtCompletion if defined, otherwise fallback to duration as a simple cost unit
+            const bac = activity.budgetAtCompletion ?? activity.duration;
+            const actualCost = activity.actualCost ?? 0;
+            const percentComplete = activity.percentComplete ?? 0;
+
+            // Planned Value (PV) is the portion of BAC planned to be completed by dataDate
+            if (activity.startDate <= dataDate) {
+                const activityEnd = new Date(activity.startDate);
+                activityEnd.setDate(activityEnd.getDate() + activity.duration);
+
+                if (activityEnd <= dataDate) {
+                    // Entire activity should be completed by dataDate
+                    pv += bac;
+                } else {
+                    // Partial progress based on elapsed time proportion
+                    const totalDuration = activity.duration;
+                    const elapsed = Math.floor((dataDate.getTime() - activity.startDate.getTime()) / (1000 * 60 * 60 * 24));
+                    const timeProportion = Math.min(elapsed / totalDuration, 1);
+                    pv += bac * timeProportion;
+                }
+            }
+
+            // Earned Value (EV) based on actual percent complete
+            ev += bac * (percentComplete / 100);
+
+            // Actual Cost (AC)
+            ac += actualCost;
+        });
+
+        const sv = ev - pv;
+        const cv = ev - ac;
+        const spi = pv > 0 ? ev / pv : 0;
+        const cpi = ac > 0 ? ev / ac : 0;
+
+        const totalBAC = activities.reduce((sum, a) => sum + (a.budgetAtCompletion ?? a.duration), 0);
+        const eac = cpi > 0 ? totalBAC / cpi : totalBAC;
+        const etc = eac - ac;
+        const vac = totalBAC - eac;
+
+        return {
+            pv: Math.round(pv),
+            ev: Math.round(ev),
+            ac: Math.round(ac),
+            sv: Math.round(sv),
+            cv: Math.round(cv),
+            spi: Math.round(spi * 100) / 100,
+            cpi: Math.round(cpi * 100) / 100,
+            bac: Math.round(totalBAC),
+            eac: Math.round(eac),
+            etc: Math.round(etc),
+            vac: Math.round(vac)
+        };
     }
 }

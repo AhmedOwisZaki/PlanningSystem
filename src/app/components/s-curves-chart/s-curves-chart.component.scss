@@ -1,0 +1,118 @@
+.s-curves-container {
+    padding: 1.5rem;
+    background: white;
+    border-radius: 8px;
+
+    h3 {
+        margin: 0 0 1.5rem 0;
+        color: #333;
+        font-size: 1.25rem;
+    }
+}
+
+.chart-wrapper {
+    position: relative;
+    height: 300px;
+    margin-bottom: 1.5rem;
+    display: flex;
+}
+
+.chart-svg {
+    flex: 1;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    background: #f8f9fa;
+}
+
+.grid-line {
+    stroke: #dee2e6;
+    stroke-width: 0.2;
+    stroke-dasharray: 1, 1;
+}
+
+.line {
+    fill: none;
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+
+.pv-line {
+    stroke: #6c757d;
+    stroke-width: 2;
+}
+
+.ev-line {
+    stroke: #28a745;
+    stroke-width: 2;
+}
+
+.ac-line {
+    stroke: #dc3545;
+    stroke-width: 2;
+}
+
+.y-axis {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding-left: 0.5rem;
+    font-size: 0.75rem;
+    color: #6c757d;
+    min-width: 80px;
+}
+
+.legend {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.legend-color {
+    width: 24px;
+    height: 3px;
+    border-radius: 2px;
+
+    &.pv {
+        background: #6c757d;
+    }
+
+    &.ev {
+        background: #28a745;
+    }
+
+    &.ac {
+        background: #dc3545;
+    }
+}
+
+.current-values {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+
+.value-card {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 6px;
+    text-align: center;
+}
+
+.value-label {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-bottom: 0.5rem;
+}
+
+.value-amount {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #212529;
+}

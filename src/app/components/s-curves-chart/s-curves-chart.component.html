@@ -1,0 +1,62 @@
+<div class="s-curves-container">
+    <h3>S-Curves - EVM Trend Analysis</h3>
+
+    <div class="chart-wrapper">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="chart-svg">
+            <!-- Grid lines -->
+            <line x1="0" y1="25" x2="100" y2="25" class="grid-line" />
+            <line x1="0" y1="50" x2="100" y2="50" class="grid-line" />
+            <line x1="0" y1="75" x2="100" y2="75" class="grid-line" />
+
+            <!-- PV Line (Planned Value) -->
+            <path [attr.d]="getPVPath()" class="line pv-line" />
+
+            <!-- EV Line (Earned Value) -->
+            <path [attr.d]="getEVPath()" class="line ev-line" />
+
+            <!-- AC Line (Actual Cost) -->
+            <path [attr.d]="getACPath()" class="line ac-line" />
+        </svg>
+
+        <!-- Y-axis labels -->
+        <div class="y-axis">
+            <span>{{ formatCurrency(maxValue()) }}</span>
+            <span>{{ formatCurrency(maxValue() * 0.75) }}</span>
+            <span>{{ formatCurrency(maxValue() * 0.5) }}</span>
+            <span>{{ formatCurrency(maxValue() * 0.25) }}</span>
+            <span>$0</span>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+        <div class="legend-item">
+            <div class="legend-color pv"></div>
+            <span>Planned Value (PV)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color ev"></div>
+            <span>Earned Value (EV)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color ac"></div>
+            <span>Actual Cost (AC)</span>
+        </div>
+    </div>
+
+    <!-- Current Values -->
+    <div class="current-values" *ngIf="chartData().length > 0">
+        <div class="value-card">
+            <div class="value-label">Latest PV</div>
+            <div class="value-amount">{{ formatCurrency(chartData()[chartData().length - 1].pv) }}</div>
+        </div>
+        <div class="value-card">
+            <div class="value-label">Latest EV</div>
+            <div class="value-amount">{{ formatCurrency(chartData()[chartData().length - 1].ev) }}</div>
+        </div>
+        <div class="value-card">
+            <div class="value-label">Latest AC</div>
+            <div class="value-amount">{{ formatCurrency(chartData()[chartData().length - 1].ac) }}</div>
+        </div>
+    </div>
+</div>

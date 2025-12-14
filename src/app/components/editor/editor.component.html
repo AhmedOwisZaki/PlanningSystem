@@ -6,6 +6,7 @@
     <div class="editor-tabs">
         <div class="tab" [class.active]="activeTab === 'project'" (click)="toggleTab('project')">Project</div>
         <div class="tab" [class.active]="activeTab === 'resources'" (click)="toggleTab('resources')">Resources</div>
+        <div class="tab" [class.active]="activeTab === 'calendars'" (click)="toggleTab('calendars')">Calendars</div>
     </div>
 
     <!-- Tab Content -->
@@ -38,6 +39,13 @@
                 <h4>Export</h4>
                 <button class="btn-export" (click)="exportToXER()">
                     📥 Export to Primavera P6 (.xer)
+                </button>
+            </div>
+
+            <div class="evm-section">
+                <h4>EVM Analysis</h4>
+                <button class="btn-s-curves" (click)="openSCurves()">
+                    📊 View S-Curves Chart
                 </button>
             </div>
         </div>
@@ -110,10 +118,53 @@
 
         </div>
 
+        <!-- CALENDARS TAB -->
+        <div *ngIf="activeTab === 'calendars'" class="tab-pane calendars-pane">
+            <h3>Work Calendars</h3>
+
+            <div class="calendar-list">
+                <div class="calendar-card" *ngFor="let calendar of calendars()">
+                    <div class="calendar-header">
+                        <h4>{{ calendar.name }}</h4>
+                        <span class="default-badge" *ngIf="calendar.isDefault">Default</span>
+                    </div>
+
+                    <div class="calendar-info">
+                        <div class="info-row">
+                            <span class="label">Work Hours/Day:</span>
+                            <span>{{ calendar.workHoursPerDay }} hours</span>
+                        </div>
+
+                        <div class="info-row">
+                            <span class="label">Work Days:</span>
+                            <span>{{ getWorkDaysText(calendar.workDays) }}</span>
+                        </div>
+
+                        <div class="info-row">
+                            <span class="label">Holidays:</span>
+                            <span>{{ calendar.holidays.length }} defined</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="no-calendars" *ngIf="calendars().length === 0">
+                    <p>No calendars defined. A default calendar will be created automatically.</p>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <app-resource-usage-chart *ngIf="showProfile() && selectedResource()" [resource]="selectedResource()"
         [activities]="activities()" [projectStartDate]="projectStartDate()" [projectEndDate]="projectEndDate()"
         (close)="closeProfile()">
     </app-resource-usage-chart>
+
+    <!-- S-Curves Modal -->
+    <div class="s-curves-modal" *ngIf="showSCurves()" (click)="closeSCurves()">
+        <div class="s-curves-content" (click)="$event.stopPropagation()">
+            <button class="close-modal-btn" (click)="closeSCurves()">×</button>
+            <app-s-curves-chart></app-s-curves-chart>
+        </div>
+    </div>
 </div>
