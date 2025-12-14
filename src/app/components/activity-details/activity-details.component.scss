@@ -313,3 +313,32 @@
         }
     }
 }
+
+/* Steps Content Styles */
+.details-content.steps-content {
+    display: flex !important;
+    flex-direction: column;
+    padding: 1rem;
+
+    .steps-list-section {
+        flex: 1;
+        overflow-y: auto;
+        border: 1px solid #eee;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+        background: #fff;
+    }
+
+    .add-step-form {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+
+        h4 {
+            margin: 0 0 0.5rem 0;
+            font-size: 0.9rem;
+            color: #495057;
+        }
+    }
+}

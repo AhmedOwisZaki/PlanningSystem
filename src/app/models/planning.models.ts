@@ -23,6 +23,17 @@ export interface Activity {
     baselineEndDate?: Date;
     // Leveling Fields
     levelingDelay?: number;
+
+    // Activity Steps (P6)
+    steps?: ActivityStep[];
+    earningType?: 'Duration' | 'Physical' | 'Steps';
+}
+
+export interface ActivityStep {
+    id: number;
+    name: string;
+    weight: number; // For weighted progress
+    completed: boolean;
 }
 
 export interface ResourceItem {
@@ -61,4 +72,6 @@ export interface ProjectState {
     dependencies: Dependency[];
     resources?: Resource[];
     resourceTypes?: ResourceType[];
+    projectName?: string;
+    projectDescription?: string;
 }

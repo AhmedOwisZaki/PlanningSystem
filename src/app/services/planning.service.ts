@@ -1,5 +1,5 @@
 import { Injectable, signal, computed, WritableSignal } from '@angular/core';
-import { Activity, Dependency, ProjectState } from '../models/planning.models';
+import { Activity, Dependency, ProjectState, ActivityStep } from '../models/planning.models';
 
 @Injectable({
     providedIn: 'root'
@@ -12,7 +12,6 @@ export class PlanningService {
         activities: [
             // Root WBS
             { id: 0, name: 'Total Project', startDate: new Date('2025-01-01'), duration: 320, percentComplete: 35, parentId: null, isExpanded: true },
-
             // WBS 1: Project Initiation (15 activities)
             { id: 1, name: 'Phase 1: Project Initiation', startDate: new Date('2025-01-01'), duration: 30, percentComplete: 80, parentId: 0, isExpanded: true },
             { id: 2, name: 'Charter Development', startDate: new Date('2025-01-01'), duration: 5, percentComplete: 100, parentId: 1, resourceItems: [{ id: 1, activityId: 2, resourceId: 101, amount: 8 }] },
@@ -139,7 +138,18 @@ export class PlanningService {
 
     constructor() {
         this.assignMockResources();
-        // Save initial state
+        this.scheduleProject();
+        this.saveToHistory();
+    }
+
+    loadProjectState(newState: ProjectState) {
+        this.state.set({
+            ...newState,
+            activities: newState.activities || [],
+            dependencies: newState.dependencies || [],
+            resources: newState.resources || []
+        });
+        this.scheduleProject();
         this.saveToHistory();
     }
 
@@ -576,6 +586,86 @@ export class PlanningService {
                 }
             }
         }
+    }
+
+    // Activity Steps Logic
+    addActivityStep(activityId: number, name: string, weight: number = 1) {
+        this.state.update(current => {
+            const activities = current.activities.map(a => {
+                if (a.id !== activityId) return a;
+                const steps = a.steps || [];
+                const newStep: ActivityStep = {
+                    id: Date.now(),
+                    name,
+                    weight,
+                    completed: false
+                };
+                const updated = { ...a, steps: [...steps, newStep] };
+                if (a.earningType === 'Steps') {
+                    // updated.percentComplete = this.calculateStepProgress(updated.steps);
+                    // Logic moved to helper to verify before assignment
+                    const totalWeight = updated.steps.reduce((sum, s) => sum + s.weight, 0);
+                    const completedWeight = updated.steps.filter(s => s.completed).reduce((sum, s) => sum + s.weight, 0);
+                    updated.percentComplete = totalWeight > 0 ? Math.round((completedWeight / totalWeight) * 100) : 0;
+                }
+                return updated;
+            });
+            return { ...current, activities };
+        });
+        this.saveToHistory();
+    }
+
+    removeActivityStep(activityId: number, stepId: number) {
+        this.state.update(current => {
+            const activities = current.activities.map(a => {
+                if (a.id !== activityId) return a;
+                const steps = (a.steps || []).filter(s => s.id !== stepId);
+                const updated = { ...a, steps };
+                if (a.earningType === 'Steps') {
+                    const totalWeight = updated.steps.reduce((sum, s) => sum + s.weight, 0);
+                    const completedWeight = updated.steps.filter(s => s.completed).reduce((sum, s) => sum + s.weight, 0);
+                    updated.percentComplete = totalWeight > 0 ? Math.round((completedWeight / totalWeight) * 100) : 0;
+                }
+                return updated;
+            });
+            return { ...current, activities };
+        });
+        this.saveToHistory();
+    }
+
+    toggleActivityStep(activityId: number, stepId: number) {
+        this.state.update(current => {
+            const activities = current.activities.map(a => {
+                if (a.id !== activityId) return a;
+                const steps = (a.steps || []).map(s => s.id === stepId ? { ...s, completed: !s.completed } : s);
+                const updated = { ...a, steps };
+                if (a.earningType === 'Steps') {
+                    const totalWeight = updated.steps.reduce((sum, s) => sum + s.weight, 0);
+                    const completedWeight = updated.steps.filter(s => s.completed).reduce((sum, s) => sum + s.weight, 0);
+                    updated.percentComplete = totalWeight > 0 ? Math.round((completedWeight / totalWeight) * 100) : 0;
+                }
+                return updated;
+            });
+            return { ...current, activities };
+        });
+        this.saveToHistory();
+    }
+
+    updateEarningType(activityId: number, type: 'Duration' | 'Physical' | 'Steps') {
+        this.state.update(current => {
+            const activities = current.activities.map(a => {
+                if (a.id !== activityId) return a;
+                const updated = { ...a, earningType: type };
+                if (type === 'Steps' && a.steps) {
+                    const totalWeight = a.steps.reduce((sum, s) => sum + s.weight, 0);
+                    const completedWeight = a.steps.filter(s => s.completed).reduce((sum, s) => sum + s.weight, 0);
+                    updated.percentComplete = totalWeight > 0 ? Math.round((completedWeight / totalWeight) * 100) : 0;
+                }
+                return updated;
+            });
+            return { ...current, activities };
+        });
+        this.saveToHistory();
     }
 
     updateActivityType(id: number, type: 'Task' | 'StartMilestone' | 'FinishMilestone') {

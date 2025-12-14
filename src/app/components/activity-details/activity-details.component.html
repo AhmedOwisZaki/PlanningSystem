@@ -10,6 +10,7 @@
         <button [class.active]="activeTab() === 'resources'" (click)="setActiveTab('resources')">Resources</button>
         <button [class.active]="activeTab() === 'relationships'"
             (click)="setActiveTab('relationships')">Relationships</button>
+        <button [class.active]="activeTab() === 'steps'" (click)="setActiveTab('steps')">Steps</button>
     </div>
 
     <div class="details-content" *ngIf="activeTab() === 'general'">
@@ -181,6 +182,62 @@
                     </tr>
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- Steps Tab Content -->
+    <div class="details-content steps-content" *ngIf="activeTab() === 'steps'">
+        <div class="detail-item full-width" style="margin-bottom: 15px;">
+            <label>Percent Complete Type:</label>
+            <select [value]="selectedActivity()!.earningType || 'Duration'" (change)="onEarningTypeChange($event)">
+                <option value="Duration">Duration</option>
+                <option value="Physical">Physical</option>
+                <option value="Steps">Activity Steps</option>
+            </select>
+            <small class="hint" *ngIf="selectedActivity()!.earningType === 'Steps'"
+                style="display:block; margin-top:5px; color:#666;">
+                % Complete is calculated automatically from step weights.
+            </small>
+        </div>
+
+        <div class="steps-list-section">
+            <table class="resource-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">Done</th>
+                        <th>Step Name</th>
+                        <th style="width: 60px;">Weight</th>
+                        <th style="width: 40px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let step of selectedActivity()?.steps || []">
+                        <td style="text-align: center;">
+                            <input type="checkbox" [checked]="step.completed" (change)="toggleStep(step.id)">
+                        </td>
+                        <td>{{ step.name }}</td>
+                        <td>{{ step.weight }}</td>
+                        <td>
+                            <button class="close-btn" style="font-size:1.2rem; width:20px; height:20px;"
+                                (click)="removeStep(step.id)">×</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="no-resources" *ngIf="(!selectedActivity()?.steps || selectedActivity()!.steps!.length === 0)">
+                No steps defined.
+            </div>
+        </div>
+
+        <div class="add-step-form" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee;">
+            <h4>Add Activity Step</h4>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="text" [(ngModel)]="newStepName" placeholder="Step Name" class="form-control"
+                    style="flex: 2;">
+                <input type="number" [(ngModel)]="newStepWeight" placeholder="Weight" class="form-control" min="1"
+                    style="flex: 1;">
+                <button class="btn-assign" (click)="addStep()" [disabled]="!newStepName.trim()">Add</button>
+            </div>
         </div>
     </div>
 </div>

@@ -19,7 +19,7 @@ export class ActivityDetailsComponent implements OnDestroy {
 
     // Details panel resize state
     detailsPanelHeight = signal(200); // Default height in pixels
-    activeTab = signal<'general' | 'resources' | 'relationships'>('general');
+    activeTab = signal<'general' | 'resources' | 'relationships' | 'steps'>('general');
 
     // Resources from service
     resources = this.planningService.resources;
@@ -79,7 +79,7 @@ export class ActivityDetailsComponent implements OnDestroy {
         }
     }
 
-    setActiveTab(tab: 'general' | 'resources' | 'relationships') {
+    setActiveTab(tab: 'general' | 'resources' | 'relationships' | 'steps') {
         this.activeTab.set(tab);
     }
 
@@ -146,6 +146,41 @@ export class ActivityDetailsComponent implements OnDestroy {
         const baseline = new Date(activity.baselineStartDate);
         const diff = start.getTime() - baseline.getTime();
         return Math.round(diff / (1000 * 3600 * 24));
+    }
+
+    // Steps Logic
+    newStepName = '';
+    newStepWeight = 1;
+
+    addStep() {
+        if (this.selectedActivity() && this.newStepName.trim()) {
+            this.planningService.addActivityStep(
+                this.selectedActivity()!.id,
+                this.newStepName,
+                this.newStepWeight
+            );
+            this.newStepName = '';
+            this.newStepWeight = 1;
+        }
+    }
+
+    removeStep(stepId: number) {
+        if (this.selectedActivity()) {
+            this.planningService.removeActivityStep(this.selectedActivity()!.id, stepId);
+        }
+    }
+
+    toggleStep(stepId: number) {
+        if (this.selectedActivity()) {
+            this.planningService.toggleActivityStep(this.selectedActivity()!.id, stepId);
+        }
+    }
+
+    onEarningTypeChange(event: Event) {
+        const type = (event.target as HTMLSelectElement).value as any;
+        if (this.selectedActivity()) {
+            this.planningService.updateEarningType(this.selectedActivity()!.id, type);
+        }
     }
 
     // Details Panel Resize Handlers
