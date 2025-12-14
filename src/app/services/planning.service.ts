@@ -6,7 +6,7 @@ import { Activity, Dependency, ProjectState } from '../models/planning.models';
 })
 export class PlanningService {
     // State Signals
-    private state: WritableSignal<ProjectState> = signal({
+    public state: WritableSignal<ProjectState> = signal({
         projectStartDate: new Date('2025-01-01'),
         projectEndDate: new Date('2025-12-31'),
         activities: [
@@ -689,7 +689,6 @@ export class PlanningService {
         });
 
         // Loop until queue empty
-        // Note: If circular dependencies exist or logic flaw, might hang. Add safety.
         let loopCount = 0;
         const maxLoops = leafActivities.length * 2;
 
@@ -708,13 +707,6 @@ export class PlanningService {
 
                 return a.id - b.id;
             });
-
-            // Make sure we only process nodes whose preds are ALL scheduled
-            // Double check validity (queue might have been added to eagerly?)
-            // Actually, the logic below ensures we only add to queue when all preds done.
-            // But initial population needs to cover cases where preds might be summaries? 
-            // Limitation: We ignore summaries in leveling. So if A -> Summary -> B, we break chain?
-            // Current CPM logic does not usually link summaries directly. Relationships are on tasks.
 
             // Pop highest priority
             const act = eligibleQueue.shift()!;
@@ -765,7 +757,6 @@ export class PlanningService {
             // Update
             act.startDate = testStart;
             const es = new Date(act.earlyStart || act.startDate);
-            // Fix TS Error via cast
             const diff = (testStart as Date).getTime() - (es as Date).getTime();
             act.levelingDelay = Math.round(diff / (1000 * 3600 * 24));
 
@@ -781,9 +772,6 @@ export class PlanningService {
                     const succPreds = predMap.get(successor.id) || [];
                     const allPredsDone = succPreds.every(pid => {
                         const pFunc = activityMap.get(pid);
-                        // If pred is a summary or milestone, we treat it as done? 
-                        // Or we should have included milestones in scheduling?
-                        // If milestone, we don't level it, but it exists.
                         if (!pFunc) return true; // Safety
                         if (pFunc.type?.includes('Milestone')) return true; // Milestones don't block logic here? 
                         if (this.isParent(pid)) return true; // Summaries ignored
@@ -797,18 +785,10 @@ export class PlanningService {
             });
         }
 
-        // Handle Milestones (just update dates based on preds, no resource check)
-        // Or re-run scheduleProject() respecting the forced dates? 
-        // Better: rollupWBS handles summaries. Milestones need to be updated? 
-        // Re-running scheduleProject with 'imposed' dates is complex.
-
-        // Let's just rollup WBS. Milestones might be out of sync if they depended on leveled tasks.
-        // Simple fix: simple forward pass for milestones/non-leveled items.
-
         this.rollupWBS(activities);
 
         // Recalculate Project End Date (Calendar Bars coverage)
-        let maxEnd = new Date(state.projectStartDate);
+        let maxEnd = new Date(this.state().projectStartDate);
         activities.forEach(a => {
             const finish = new Date(a.startDate);
             finish.setDate(finish.getDate() + a.duration);

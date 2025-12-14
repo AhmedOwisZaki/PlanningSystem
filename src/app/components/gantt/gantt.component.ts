@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { PlanningService } from '../../services/planning.service';
 import { ActivityDetailsComponent } from '../activity-details/activity-details.component';
 import { EditorComponent } from '../editor/editor.component';
+import { ResourceUsageProfileComponent } from '../resource-usage-profile/resource-usage-profile.component';
 
 @Component({
   selector: 'app-gantt',
   standalone: true,
-  imports: [CommonModule, FormsModule, ActivityDetailsComponent, EditorComponent],
+  imports: [CommonModule, FormsModule, ActivityDetailsComponent, EditorComponent, ResourceUsageProfileComponent],
   templateUrl: './gantt.component.html',
   styleUrls: ['./gantt.component.scss']
 })
@@ -64,6 +65,7 @@ export class GanttComponent {
   activities = this.planningService.activities;
   projectStartDate = this.planningService.projectStartDate;
   projectEndDate = this.planningService.projectEndDate;
+  projectState = this.planningService.state;
 
   // View settings
   dayWidth = 40; // pixels per day
@@ -72,6 +74,11 @@ export class GanttComponent {
   zoomLevel = signal(1);
   minZoom = 0.1;
   maxZoom = 6;
+
+  // Bottom Panel Tab State
+  activeBottomTab = signal<'details' | 'usage'>('details');
+  // Scroll Sync State
+  timelineScrollX = signal(0);
 
   // Computed timeline
   totalDays = computed(() => {
@@ -611,6 +618,8 @@ export class GanttComponent {
     this.isSyncingLeft = true;
 
     const timeline = event.target as HTMLElement;
+    this.timelineScrollX.set(timeline.scrollLeft);
+
     const taskList = document.querySelector('.task-list-rows') as HTMLElement;
 
     if (taskList) {

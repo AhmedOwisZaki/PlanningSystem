@@ -215,6 +215,24 @@
         </div>
     </div>
 
-    <!-- Activity Details Panel (Bottom) -->
-    <app-activity-details *ngIf="selectedActivity()"></app-activity-details>
+    <!-- Bottom Panel (Tabs) -->
+    <div class="bottom-panel">
+        <div class="bottom-panel-tabs">
+            <div class="tab" [class.active]="activeBottomTab() === 'details'" (click)="activeBottomTab.set('details')">
+                Activity Details</div>
+            <div class="tab" [class.active]="activeBottomTab() === 'usage'" (click)="activeBottomTab.set('usage')">
+                Resource Usage Profile</div>
+        </div>
+        <div class="bottom-panel-content">
+            <app-activity-details *ngIf="activeBottomTab() === 'details' && selectedActivity()"></app-activity-details>
+            <div *ngIf="activeBottomTab() === 'details' && !selectedActivity()" class="no-selection">Select an activity
+                to view details</div>
+
+            <app-resource-usage-profile *ngIf="activeBottomTab() === 'usage'" [projectState]="projectState()"
+                [startDate]="projectStartDate()" [endDate]="projectEndDate()" [dayWidth]="dayWidth"
+                [zoomLevel]="zoomLevel()" [scrollLeft]="timelineScrollX()">
+            </app-resource-usage-profile>
+        </div>
+    </div>
 </div>
+```

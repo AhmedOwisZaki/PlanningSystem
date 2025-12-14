@@ -1,0 +1,30 @@
+<div class="profile-container">
+    <div class="y-axis">
+        <!-- Simple scale generation -->
+        <div class="scale-label top">{{ maxUsage() | number:'1.0-0' }}</div>
+        <div class="scale-label mid">{{ maxUsage() / 2 | number:'1.0-0' }}</div>
+        <div class="scale-label bottom">0</div>
+    </div>
+    <div class="chart-area">
+        <!-- SVG Chart -->
+        <!-- Note: Width needs to match Gantt Timeline exactly -->
+        <!-- We use absolute positioning for bars to mimic Gantt cells -->
+        <div class="bars-wrapper" [style.transform]="'translateX(' + (-currentScroll()) + 'px)'">
+            <div class="bar-column" *ngFor="let day of aggregatedData(); let i = index" [style.left.px]="getLeft(i)"
+                [style.width.px]="dayWidth * zoomLevel">
+
+                <!-- Limit Line (if we want to draw it per bar) -->
+                <!-- Better: The bar itself -->
+                <div class="bar-fill" [style.height.%]="getBarHeight(day.total)" [class.over-limit]="day.isOver">
+                    <span class="tooltip">
+                        {{ day.date | date:'shortDate' }}: {{ day.total }} / {{ day.limit }}
+                    </span>
+                </div>
+
+                <!-- Limit Marker -->
+                <div class="limit-marker" [style.bottom.%]="getBarHeight(day.limit)">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
