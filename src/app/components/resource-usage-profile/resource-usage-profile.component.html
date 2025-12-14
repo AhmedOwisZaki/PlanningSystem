@@ -9,7 +9,8 @@
         <!-- SVG Chart -->
         <!-- Note: Width needs to match Gantt Timeline exactly -->
         <!-- We use absolute positioning for bars to mimic Gantt cells -->
-        <div class="bars-wrapper" [style.transform]="'translateX(' + (-currentScroll()) + 'px)'">
+        <!-- We use absolute positioning for bars to mimic Gantt cells -->
+        <div class="bars-wrapper" [style.width.px]="totalWidth()">
             <div class="bar-column" *ngFor="let day of aggregatedData(); let i = index" [style.left.px]="getLeft(i)"
                 [style.width.px]="dayWidth * zoomLevel">
 
@@ -23,6 +24,16 @@
 
                 <!-- Limit Marker -->
                 <div class="limit-marker" [style.bottom.%]="getBarHeight(day.limit)">
+                </div>
+
+                <!-- X Axis Date Label -->
+                <div class="date-label">
+                    {{ day.date | date:'d' }}
+                </div>
+
+                <!-- Month Label (First of Month) -->
+                <div class="month-label" *ngIf="day.date.getDate() === 1 || i === 0">
+                    {{ day.date | date:'MMM yyyy' }}
                 </div>
             </div>
         </div>

@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal, OnDestroy } from '@angular/core';
+import { Component, computed, inject, signal, OnDestroy, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PlanningService } from '../../services/planning.service';
@@ -18,7 +18,7 @@ export class ActivityDetailsComponent implements OnDestroy {
     selectedActivity = this.planningService.selectedActivity;
 
     // Details panel resize state
-    detailsPanelHeight = signal(200); // Default height in pixels
+    detailsPanelHeight = signal(160); // Default height in pixels
     activeTab = signal<'general' | 'resources' | 'relationships' | 'steps' | 'cost'>('general');
 
     // Resources from service
@@ -38,8 +38,9 @@ export class ActivityDetailsComponent implements OnDestroy {
     private isResizingPanel = false;
     private resizeStartY = 0;
     private resizeStartHeight = 0;
-    private minPanelHeight = 100;
-    private maxPanelHeight = 600;
+    private minPanelHeight = 50;
+
+
 
     ngOnDestroy() {
         // Ensure listeners are removed if component is destroyed
@@ -129,9 +130,12 @@ export class ActivityDetailsComponent implements OnDestroy {
         }
     }
 
+    @Output() close = new EventEmitter<void>();
+
     closeDetailsPanel() {
         this.planningService.setSelectedActivity(null);
         this.isAssigningResource = false;
+        this.close.emit();
     }
 
     getEndDate(activity: any): Date {
@@ -198,9 +202,11 @@ export class ActivityDetailsComponent implements OnDestroy {
         if (!this.isResizingPanel) return;
 
         const deltaY = this.resizeStartY - event.clientY; // Inverted: drag up = increase height
+        const availableHeight = window.innerHeight - 100; // Leave some space for header
+
         const newHeight = Math.max(
             this.minPanelHeight,
-            Math.min(this.maxPanelHeight, this.resizeStartHeight + deltaY)
+            Math.min(availableHeight, this.resizeStartHeight + deltaY)
         );
 
         this.detailsPanelHeight.set(newHeight);

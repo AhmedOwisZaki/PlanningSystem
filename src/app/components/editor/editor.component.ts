@@ -1,16 +1,15 @@
-import { Component, inject, computed, signal } from '@angular/core';
+import { Component, inject, computed, signal, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PlanningService } from '../../services/planning.service';
 import { Resource } from '../../models/planning.models';
-import { ResourceUsageChartComponent } from '../resource-usage-chart/resource-usage-chart.component';
 import { XerExporterService } from '../../services/xer-exporter.service';
 import { SCurvesChartComponent } from '../s-curves-chart/s-curves-chart.component';
 
 @Component({
     selector: 'app-editor',
     standalone: true,
-    imports: [CommonModule, FormsModule, ResourceUsageChartComponent, SCurvesChartComponent],
+    imports: [CommonModule, FormsModule, SCurvesChartComponent],
     templateUrl: './editor.component.html',
     styleUrls: ['./editor.component.scss']
 })
@@ -26,6 +25,7 @@ export class EditorComponent {
     projectStartDate = this.planningService.projectStartDate;
     projectEndDate = this.planningService.projectEndDate;
     activities = this.planningService.activities;
+    projectState = this.planningService.state; // Needed for profile component
     projectName = computed(() => this.planningService.state().projectName || 'Current Project');
 
     // Calendars
@@ -55,6 +55,8 @@ export class EditorComponent {
     selectedResource = signal<Resource | null>(null);
     showProfile = signal(false);
 
+    @Output() requestOpenProfile = new EventEmitter<Resource>();
+
     toggleTab(tab: 'project' | 'resources' | 'calendars') {
         this.activeTab = tab;
         this.selectedResource.set(null); // Clear selection when switching tabs if desired
@@ -75,11 +77,18 @@ export class EditorComponent {
 
     openProfile(event: Event) {
         event.stopPropagation();
-        this.showProfile.set(true);
+        const res = this.selectedResource();
+        if (res) {
+            this.requestOpenProfile.emit(res);
+        }
     }
 
     closeProfile() {
         this.showProfile.set(false);
+    }
+
+    printProfile() {
+        window.print();
     }
 
 

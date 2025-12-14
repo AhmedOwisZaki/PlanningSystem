@@ -7,5 +7,6 @@ export const routes: Routes = [
     { path: '', redirectTo: '/welcome', pathMatch: 'full' },
     { path: 'welcome', component: WelcomeComponent },
     { path: 'projects', component: ProjectsPageComponent },
-    { path: 'planning', component: GanttComponent }
+    { path: 'planning', component: GanttComponent },
+
 ];

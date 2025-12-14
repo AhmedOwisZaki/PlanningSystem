@@ -325,9 +325,66 @@ export class GanttComponent {
   // Editor state
   isEditorVisible = false;
 
+  // Side Window State (Resource Usage)
+  isSideWindowVisible = false;
+  selectedSideWindowResource: number | null = null;
+  sideWindowHoverTimer: any;
+
+  // Resources for dropdown
+  resources = this.planningService.resources;
+
+  onBookIconMouseEnter() {
+    // Clear any close timer
+    if (this.sideWindowHoverTimer) clearTimeout(this.sideWindowHoverTimer);
+    this.isSideWindowVisible = true;
+  }
+
+  // Floating Window State
+  isFloatingWindowVisible = false;
+  floatingWindowType: 'resource' | 'evm' = 'resource';
+  floatingWindowResource: any = null;
+  // Position is handled via CSS for "constant position"
+
+  onOpenProfileRequest(resource: any) {
+    this.openFloatingWindow('resource', resource);
+  }
+
+  onBookIconClick() {
+    this.openFloatingWindow('evm');
+  }
+
   onGearMouseEnter() {
     this.isEditorVisible = true;
   }
+
+  private openFloatingWindow(type: 'resource' | 'evm', resource: any = null) {
+    this.floatingWindowType = type;
+    this.floatingWindowResource = resource;
+    this.isFloatingWindowVisible = true;
+  }
+
+  closeFloatingWindow() {
+    this.isFloatingWindowVisible = false;
+    this.floatingWindowResource = null;
+    this.resourceProfileZoomLevel = 1; // Reset zoom on close
+  }
+
+  // Resource Profile Zoom
+  resourceProfileZoomLevel = 1;
+
+  zoomResourceProfile(amount: number) {
+    const newZoom = this.resourceProfileZoomLevel + amount;
+    if (newZoom >= 0.1 && newZoom <= 5) {
+      this.resourceProfileZoomLevel = newZoom;
+    }
+  }
+  printFloatingWindow() {
+    window.print();
+  }
+
+
+
+
 
   closeEditor() {
     this.isEditorVisible = false;
@@ -575,6 +632,11 @@ export class GanttComponent {
   }
 
   // Activity Selection for Details Panel
+  // Activity Selection for Details Panel
+
+  // Controls visibility of the bottom details panel
+  isActivityDetailsVisible = signal(false);
+
   selectActivity(activity: any, event: MouseEvent) {
     event.stopPropagation();
     console.log('Activity selected:', activity);
@@ -593,6 +655,36 @@ export class GanttComponent {
         behavior: 'smooth'
       });
     }
+  }
+
+  onActivityDoubleClick(activity: any, event: MouseEvent) {
+    event.stopPropagation();
+    event.preventDefault(); // Prevent text selection etc
+
+    // Select it first (if not already)
+    this.planningService.setSelectedActivity(activity);
+
+    // Open details
+    this.isActivityDetailsVisible.set(true);
+    this.activeBottomTab.set('details');
+
+    // Center the chart logic can remain here or move
+    const timeline = document.querySelector('.timeline-panel');
+    if (timeline) {
+      const taskLeft = this.getTaskLeft(activity.startDate);
+      const taskWidth = this.getTaskWidth(activity.duration);
+      const center = taskLeft + (taskWidth / 2);
+      const viewportWidth = timeline.clientWidth;
+
+      timeline.scrollTo({
+        left: center - (viewportWidth / 2),
+        behavior: 'smooth'
+      });
+    }
+  }
+
+  closeActivityDetails() {
+    this.isActivityDetailsVisible.set(false);
   }
 
   // Synchronize scroll between task list and timeline

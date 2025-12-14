@@ -16,12 +16,41 @@
 
     <!-- Editor Panel Container -->
     <div class="editor-panel-container" *ngIf="isEditorVisible">
-        <app-editor></app-editor>
+        <app-editor (requestOpenProfile)="onOpenProfileRequest($event)"></app-editor>
     </div>
 
-    <!-- EVM Dashboard -->
-    <div class="evm-section">
-        <app-evm-dashboard></app-evm-dashboard>
+    <!-- EVM Dashboard (Hidden, moved to floating window) -->
+    <!-- <div class="evm-section"><app-evm-dashboard></app-evm-dashboard></div> -->
+
+    <!-- Floating Draggable Resource Profile / EVM Window -->
+    <div class="floating-window printable-modal" *ngIf="isFloatingWindowVisible">
+
+        <div class="window-header">
+            <h3 style="margin: 0;" *ngIf="floatingWindowType === 'resource'">Usage Profile: {{
+                floatingWindowResource?.name || 'Total Project' }}</h3>
+            <h3 style="margin: 0;" *ngIf="floatingWindowType === 'evm'">Earned Value Management (EVM)</h3>
+
+            <div class="window-controls" (mousedown)="$event.stopPropagation()">
+                <div class="zoom-controls" *ngIf="floatingWindowType === 'resource'"
+                    style="display: inline-flex; gap: 5px; margin-right: 15px;">
+                    <button class="mini-btn" (click)="zoomResourceProfile(-0.1)" title="Zoom Out">-</button>
+                    <button class="mini-btn" (click)="zoomResourceProfile(0.1)" title="Zoom In">+</button>
+                </div>
+                <button class="btn-print" (click)="printFloatingWindow()">🖨️ Print</button>
+                <button class="close-btn" (click)="closeFloatingWindow()">×</button>
+            </div>
+        </div>
+
+        <div class="window-content" (mousedown)="$event.stopPropagation()">
+            <app-resource-usage-profile *ngIf="floatingWindowType === 'resource'" [projectState]="projectState()"
+                [selectedResourceId]="floatingWindowResource?.id!" [startDate]="projectStartDate()"
+                [endDate]="projectEndDate()" [dayWidth]="40" [zoomLevel]="resourceProfileZoomLevel" [scrollLeft]="0"
+                style="flex: 1;">
+            </app-resource-usage-profile>
+
+            <app-evm-dashboard *ngIf="floatingWindowType === 'evm'"
+                style="flex: 1; width: 100%; height: 100%; overflow: hidden;"></app-evm-dashboard>
+        </div>
     </div>
 
     <!-- Controls Area -->
@@ -43,8 +72,8 @@
             <div class="task-list-rows" (scroll)="onTaskListScroll($event)">
                 <div class="task-row" *ngFor="let activity of visibleActivities()"
                     [style.background-color]="getPhaseColor(activity)" [class.root-project]="activity.id === 0"
-                    [class.selected]="selectedActivity()?.id === activity.id"
-                    (click)="selectActivity(activity, $event)">
+                    [class.selected]="selectedActivity()?.id === activity.id" (click)="selectActivity(activity, $event)"
+                    (dblclick)="onActivityDoubleClick(activity, $event)">
                     <div class="col-name" [style.padding-left.px]="getActivityLevel(activity) * 40"><span
                             class="expand-icon" *ngIf="isParentActivity(activity)"
                             (click)="toggleActivity(activity, $event)">{{ activity.isExpanded ? "-" : "+" }}</span><span
@@ -165,7 +194,8 @@
                                 [class.zoom-large]="zoomLevel() > .5"
                                 [class.selected]="selectedActivity()?.id === activity.id"
                                 [class.critical]="activity.isCritical" (mousedown)="onTaskMouseDown($event, activity)"
-                                (click)="selectActivity(activity, $event)" (dblclick)="openEditModal(activity)"
+                                (click)="selectActivity(activity, $event)"
+                                (dblclick)="onActivityDoubleClick(activity, $event)"
                                 [style.left.px]="getTaskLeft(activity.startDate)"
                                 [style.width.px]="getTaskWidth(activity.duration)">
 
@@ -222,23 +252,22 @@
     </div>
 
     <!-- Bottom Panel (Tabs) -->
-    <div class="bottom-panel">
-        <div class="bottom-panel-tabs">
-            <div class="tab" [class.active]="activeBottomTab() === 'details'" (click)="activeBottomTab.set('details')">
-                Activity Details</div>
-            <div class="tab" [class.active]="activeBottomTab() === 'usage'" (click)="activeBottomTab.set('usage')">
-                Resource Usage Profile</div>
-        </div>
+    <div class="bottom-panel" *ngIf="isActivityDetailsVisible() && selectedActivity()">
         <div class="bottom-panel-content">
-            <app-activity-details *ngIf="activeBottomTab() === 'details' && selectedActivity()"></app-activity-details>
-            <div *ngIf="activeBottomTab() === 'details' && !selectedActivity()" class="no-selection">Select an activity
-                to view details</div>
-
-            <app-resource-usage-profile *ngIf="activeBottomTab() === 'usage'" [projectState]="projectState()"
-                [startDate]="projectStartDate()" [endDate]="projectEndDate()" [dayWidth]="dayWidth"
-                [zoomLevel]="zoomLevel()" [scrollLeft]="timelineScrollX()">
-            </app-resource-usage-profile>
+            <app-activity-details (close)="closeActivityDetails()"></app-activity-details>
         </div>
     </div>
+
+    <!-- Book Icon -->
+    <div class="floating-book-icon" (click)="onBookIconClick()">
+        <!-- Book SVG -->
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+        </svg>
+    </div>
+
+    <!-- Side Window REMOVED -->
 </div>
 ```

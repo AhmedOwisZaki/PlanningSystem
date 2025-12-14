@@ -875,39 +875,16 @@
 .bottom-panel {
   display: flex;
   flex-direction: column;
-  height: 300px;
-  /* Fixed height for now */
+  height: auto;
+  /* Let content (ActivityDetails) dictate height */
+  min-height: 0;
   border-top: 1px solid #ccc;
   background: #f8f9fa;
+  flex-shrink: 0;
+  /* Prevent shrinking below content size */
 }
 
-.bottom-panel-tabs {
-  display: flex;
-  background: #e9ecef;
-  border-bottom: 1px solid #ccc;
 
-  .tab {
-    padding: 8px 16px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: #495057;
-    border-right: 1px solid #ced4da;
-    background: #e9ecef;
-
-    &:hover {
-      background: #dee2e6;
-    }
-
-    &.active {
-      background: #fff;
-      color: #228be6; // P6 Blue
-      border-bottom: 2px solid white; // Blend with content
-      margin-bottom: -1px;
-      z-index: 2;
-    }
-  }
-}
 
 .bottom-panel-content {
   flex: 1;
@@ -921,4 +898,281 @@
     text-align: center;
     margin-top: 20px;
   }
+}
+
+/* Floating Book Icon */
+.floating-book-icon {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 50px;
+  height: 50px;
+  background-color: #339af0;
+  color: white;
+  border-radius: 50%;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1000;
+  transition: transform 0.2s, background-color 0.2s;
+
+  &:hover {
+    transform: scale(1.1);
+    background-color: #228be6;
+  }
+
+  svg {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+/* Side Window (Resource Usage) */
+.side-window {
+  position: absolute;
+  bottom: 80px;
+  /* Above the icon */
+  right: 20px;
+  width: 400px;
+  height: 350px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  overflow: hidden;
+  border: 1px solid #dee2e6;
+
+  // Animation
+  opacity: 0;
+  transform: translateY(20px);
+  animation: fadeUp 0.3s forwards;
+
+  @keyframes fadeUp {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .side-window-header {
+    padding: 10px 15px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    h4 {
+      margin: 0;
+      font-size: 0.95rem;
+      color: #333;
+    }
+
+    select {
+      padding: 4px;
+      border-radius: 4px;
+      border: 1px solid #ced4da;
+      font-size: 0.85rem;
+      max-width: 200px;
+    }
+  }
+
+  .side-window-content {
+    flex: 1;
+    overflow: hidden;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+
+    app-resource-usage-profile {
+      flex: 1;
+      display: block;
+      height: 100%;
+      width: 100%;
+    }
+  }
+
+  .no-resource-msg {
+    color: #888;
+    text-align: center;
+    margin-top: 50px;
+    font-size: 0.9rem;
+  }
+}
+
+/* Floating Draggable Window */
+.floating-window {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  /* Constant centered position */
+
+  width: 800px;
+  height: 600px;
+
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #dee2e6;
+  resize: both;
+  /* Allow resizing */
+  min-width: 400px;
+  min-height: 300px;
+
+  .window-header {
+    padding: 10px 15px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    /* No drag cursor */
+
+    h3 {
+      margin: 0;
+      font-size: 1.1rem;
+      color: #333;
+    }
+
+    .window-controls {
+      display: flex;
+      gap: 10px;
+
+      .btn-print {
+        padding: 4px 8px;
+        border: 1px solid #ccc;
+        background: white;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+
+      .close-btn {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        line-height: 1;
+        cursor: pointer;
+        color: #666;
+      }
+    }
+  }
+
+  .window-content {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    background: white;
+
+    app-resource-usage-profile {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+    }
+  }
+}
+
+@media print {
+  @page {
+    margin: 0.5cm;
+    size: landscape;
+    /* Optional: suggest landscape */
+  }
+
+  /* Force background colors */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide Gantt UI elements */
+  .task-list-panel,
+  .timeline-panel,
+  .settings-gear,
+  .floating-book-icon,
+  .task-list-header {
+    display: none !important;
+  }
+
+  .gantt-container {
+    box-shadow: none;
+    border: none;
+    height: auto;
+    overflow: visible;
+  }
+
+  /* Focus on Floating Window */
+  .floating-window.printable-modal {
+    position: absolute !important;
+    /* Changed from fixed to absolute */
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    /* Allow expansion */
+    min-height: 100vh !important;
+    transform: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: white !important;
+    z-index: 10000 !important;
+    display: block !important;
+    /* Flex can be tricky in print */
+  }
+
+  .window-header {
+    background: transparent !important;
+    border-bottom: 2px solid #333 !important;
+    margin-bottom: 20px;
+
+    h3 {
+      color: black !important;
+    }
+
+    .window-controls {
+      display: none !important;
+    }
+  }
+
+  .window-content {
+    display: block !important;
+    /* Remove flex */
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Force Chart Dimensions */
+  app-resource-usage-profile {
+    display: block !important;
+    width: 100% !important;
+    height: 600px !important;
+    /* Explicit height to prevent collapse */
+    page-break-inside: avoid;
+  }
+
+  /* Deep selector to ensure profile internals render */
+  app-resource-usage-profile .profile-container {
+    height: 600px !important;
+  }
+
+  app-resource-usage-profile .chart-area {
+    overflow: visible !important;
+    /* Show all horizontal content */
+  }
+}
+
+/* Ensure app root doesn't constrain */
+app-root,
+body,
+html {
+  height: auto !important;
+  overflow: visible !important;
 }

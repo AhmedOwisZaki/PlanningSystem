@@ -34,3 +34,68 @@ body {
     overflow: hidden;
     position: relative;
 }
+
+@media print {
+
+    /* Hide everything by default */
+    body>* {
+        display: none !important;
+    }
+
+    /* Except the printable modal container */
+    body>app-root {
+        display: block !important;
+    }
+
+    /* Inside app-root, hide everything except the editor (if it's the parent) or find the modal */
+    /* Better approach: Target specific print classes */
+
+    /* Hide all main layout elements */
+    app-gantt,
+    .app-header,
+    .app-content,
+    .editor-panel>*:not(.printable-modal) {
+        display: none !important;
+    }
+
+    /* But ensure the modal is visible */
+    .printable-modal {
+        display: flex !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        background: white !important;
+        z-index: 99999 !important;
+        align-items: flex-start !important;
+        /* Align top for printing */
+        padding: 0 !important;
+    }
+
+    .printable-modal .s-curves-content {
+        width: 100% !important;
+        height: auto !important;
+        max-width: none !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    /* Ensure the profile component expands */
+    .printable-modal app-resource-usage-profile {
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    /* Hide the print/close buttons during print */
+    .btn-print,
+    .close-modal-btn {
+        display: none !important;
+    }
+
+    /* Force background graphics for charts */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+}

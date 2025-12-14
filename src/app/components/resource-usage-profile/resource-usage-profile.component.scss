@@ -38,8 +38,9 @@
 .chart-area {
     flex: 1;
     position: relative;
-    overflow: hidden;
-    /* We rely on the synced scroll position from parent */
+    overflow-x: auto;
+    /* Enable horizontal scroll */
+    overflow-y: hidden;
 }
 
 .bars-wrapper {
@@ -47,7 +48,7 @@
     top: 0;
     left: 0;
     height: 100%;
-    /* Width should theoretically be huge */
+    /* Width is set via inline style */
 }
 
 .bar-column {
@@ -60,7 +61,33 @@
     align-items: flex-end;
     /* Bottom align bars */
     justify-content: center;
-    padding: 0 2px;
+    padding: 0 2px 35px 2px;
+    /* Pad bottom for labels */
+}
+
+.date-label {
+    position: absolute;
+    bottom: 18px;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    font-size: 0.65rem;
+    color: #868e96;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.month-label {
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #495057;
+    white-space: nowrap;
+    z-index: 5;
 }
 
 .bar-fill {

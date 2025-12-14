@@ -155,10 +155,8 @@
 
     </div>
 
-    <app-resource-usage-chart *ngIf="showProfile() && selectedResource()" [resource]="selectedResource()"
-        [activities]="activities()" [projectStartDate]="projectStartDate()" [projectEndDate]="projectEndDate()"
-        (close)="closeProfile()">
-    </app-resource-usage-chart>
+    <!-- Resource Profile Modal (Reusing structure for consistency) -->
+
 
     <!-- S-Curves Modal -->
     <div class="s-curves-modal" *ngIf="showSCurves()" (click)="closeSCurves()">

@@ -35,8 +35,17 @@ export class ResourceUsageProfileComponent implements OnChanges {
         return Math.max(...data.map(d => Math.max(d.total, d.limit))) * 1.2; // Add 20% buffer
     });
 
+    totalWidth = computed(() => {
+        const count = this.aggregatedData().length;
+        if (count === 0) return 0;
+        // Ensure minimum screen width
+        return Math.max(count * this.dayWidth * this.zoomLevel, 100);
+    });
+
+    @Input() selectedResourceId: number | null = null;
+
     ngOnChanges(changes: SimpleChanges): void {
-        if (this.projectState) {
+        if (this.projectState || changes['selectedResourceId']) {
             this.calculateUsage();
         }
     }
@@ -46,26 +55,21 @@ export class ResourceUsageProfileComponent implements OnChanges {
 
         const activities = this.projectState.activities;
         const resources = this.projectState.resources || [];
-        // For now, aggregate ALL resources (sum of all units). 
-        // In P6 you usually select a specific resource. 
-        // Let's implement specific resource selection later, or default to "Total Labor" if types exist.
-        // For this phase, we'll sum EVERYTHING (Scalar sum) or maybe just the first resource?
-        // Better: Sum of all 'units' assuming they are fungible for the high level view, 
-        // OR better, pick the first resource found in the project to demo, or visual sum.
 
-        // Let's do: Sum of ALL defined resources' limits vs Sum of Assignments.
-        // This gives a "Total Project Ease" view.
-
-        const totalLimit = resources.reduce((sum, r) => sum + (r.limit || 0), 0);
+        // Determine limit: if selectedResource, use its limit. Else use sum of all.
+        let limit = 0;
+        if (this.selectedResourceId) {
+            const res = resources.find(r => r.id === Number(this.selectedResourceId));
+            limit = res ? (res.limit || 0) : 0;
+        } else {
+            limit = resources.reduce((sum, r) => sum + (r.limit || 0), 0);
+        }
 
         // Map: DateStr -> Total Amount
         const usageMap = new Map<string, number>();
 
         const start = new Date(this.startDate);
         const end = new Date(this.endDate);
-
-        // Iterate all days? Or iterate activities?
-        // Iterate activities is usually faster if sparse.
 
         activities.forEach(act => {
             if (!act.startDate || !act.resourceItems) return;
@@ -76,7 +80,15 @@ export class ResourceUsageProfileComponent implements OnChanges {
                 if (current < start || current > end) continue;
 
                 const dateStr = current.toISOString().split('T')[0];
-                const dailyTotal = act.resourceItems.reduce((acc, item) => acc + item.amount, 0);
+
+                // Calculate daily total based on selection
+                let dailyTotal = 0;
+                if (this.selectedResourceId) {
+                    const items = act.resourceItems.filter(ri => ri.resourceId === Number(this.selectedResourceId));
+                    dailyTotal = items.reduce((acc, item) => acc + item.amount, 0);
+                } else {
+                    dailyTotal = act.resourceItems.reduce((acc, item) => acc + item.amount, 0);
+                }
 
                 usageMap.set(dateStr, (usageMap.get(dateStr) || 0) + dailyTotal);
             }
@@ -95,8 +107,8 @@ export class ResourceUsageProfileComponent implements OnChanges {
             data.push({
                 date: d,
                 total: total,
-                limit: totalLimit, // Using total project limit for now
-                isOver: total > totalLimit // Simple Red/Green
+                limit: limit,
+                isOver: total > limit
             });
         }
 
