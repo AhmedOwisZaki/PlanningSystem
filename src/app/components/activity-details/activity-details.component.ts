@@ -24,6 +24,9 @@ export class ActivityDetailsComponent implements OnDestroy {
     // Resources from service
     resources = this.planningService.resources;
 
+    // Calendars from service
+    calendars = computed(() => this.planningService.state().calendars || []);
+
     // Relationship Logic
     predecessors = computed(() => {
         const act = this.selectedActivity();
@@ -63,6 +66,16 @@ export class ActivityDetailsComponent implements OnDestroy {
         const value = (event.target as HTMLSelectElement).value as any;
         if (this.selectedActivity()) {
             this.planningService.updateActivityType(this.selectedActivity()!.id, value);
+        }
+    }
+
+    onCalendarChange(event: Event) {
+        const value = parseInt((event.target as HTMLSelectElement).value, 10);
+        if (this.selectedActivity() && !isNaN(value)) {
+            this.planningService.updateActivity({
+                ...this.selectedActivity()!,
+                calendarId: value
+            });
         }
     }
 

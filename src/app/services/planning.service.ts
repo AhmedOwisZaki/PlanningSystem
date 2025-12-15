@@ -1,14 +1,19 @@
-import { Injectable, signal, computed, WritableSignal } from '@angular/core';
-import { Activity, Dependency, ProjectState, ActivityStep } from '../models/planning.models';
+import { Injectable, signal, computed, WritableSignal, PLATFORM_ID, inject, effect } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { Activity, Dependency, ProjectState, ActivityStep, Calendar } from '../models/planning.models';
 
 @Injectable({
     providedIn: 'root'
 })
 export class PlanningService {
+    private platformId = inject(PLATFORM_ID);
+
     // State Signals
     public state: WritableSignal<ProjectState> = signal({
         projectStartDate: new Date('2025-01-01'),
         projectEndDate: new Date('2025-12-31'),
+        projectId: 1, // Default ID
+        projectName: 'Reference Project',
         activities: [
             // Root WBS
             { id: 0, name: 'Total Project', startDate: new Date('2025-01-01'), duration: 320, percentComplete: 35, parentId: null, isExpanded: true },
@@ -143,24 +148,230 @@ export class PlanningService {
         this.selectedActivity.set(activity);
     }
 
+    // Calendar Management
+    addCalendar(calendar: Partial<Calendar>) {
+        const currentCalendars = this.state().calendars || [];
+        const newId = currentCalendars.length > 0 ? Math.max(...currentCalendars.map(c => c.id)) + 1 : 1;
+
+        const newCalendar: Calendar = {
+            id: newId,
+            name: calendar.name || 'New Calendar',
+            isDefault: false,
+            workDays: calendar.workDays || [false, true, true, true, true, true, false],
+            workHoursPerDay: calendar.workHoursPerDay || 8,
+            holidays: calendar.holidays || [],
+            description: calendar.description || ''
+        };
+
+        this.state.update(current => ({
+            ...current,
+            calendars: [...(current.calendars || []), newCalendar]
+        }));
+        this.saveToHistory();
+    }
+
+    updateCalendar(updatedCalendar: Calendar) {
+        this.state.update(current => ({
+            ...current,
+            calendars: (current.calendars || []).map(c => c.id === updatedCalendar.id ? updatedCalendar : c)
+        }));
+
+        // If set to default, unset others
+        if (updatedCalendar.isDefault) {
+            this.state.update(current => ({
+                ...current,
+                calendars: current.calendars!.map(c => c.id === updatedCalendar.id ? c : { ...c, isDefault: false }),
+                defaultCalendarId: updatedCalendar.id
+            }));
+        }
+        this.saveToHistory();
+    }
+
+    deleteCalendar(calendarId: number) {
+        const state = this.state();
+        if (state.calendars?.length === 1) {
+            alert('Cannot delete the last calendar.');
+            return;
+        }
+
+        // Reassign activities using this calendar to default
+        const defaultCal = state.calendars?.find(c => c.isDefault) || state.calendars![0];
+
+        this.state.update(current => ({
+            ...current,
+            calendars: current.calendars!.filter(c => c.id !== calendarId),
+            activities: current.activities.map(a => a.calendarId === calendarId ? { ...a, calendarId: defaultCal.id } : a),
+            defaultCalendarId: current.defaultCalendarId === calendarId ? defaultCal.id : current.defaultCalendarId
+        }));
+        this.saveToHistory();
+    }
+
+    // Calendar Helpers
+    private getCalendar(id?: number): Calendar {
+        const state = this.state();
+        if (id) {
+            const cal = state.calendars?.find(c => c.id === id);
+            if (cal) return cal;
+        }
+        // Fallback to default
+        const defaultCal = state.calendars?.find(c => c.isDefault) || (state.calendars && state.calendars.length > 0 ? state.calendars[0] : null);
+
+        if (!defaultCal) {
+            // Emergency fallback if absolutely no calendars exist
+            return {
+                id: 0,
+                name: 'Fallback Standard',
+                isDefault: true,
+                workDays: [false, true, true, true, true, true, false],
+                workHoursPerDay: 8,
+                holidays: []
+            };
+        }
+        return defaultCal;
+    }
+
+    private isWorkDay(date: Date, calendar: Calendar): boolean {
+        const dayOfWeek = date.getDay(); // 0 = Sun, 6 = Sat
+        if (!calendar.workDays[dayOfWeek]) return false;
+
+        // Check holidays
+        // Normalize date to YYYY-MM-DD for comparison
+        const checkStr = date.toISOString().split('T')[0];
+        const isHoliday = calendar.holidays.some(h => {
+            const hDate = new Date(h);
+            return hDate.toISOString().split('T')[0] === checkStr;
+        });
+
+        return !isHoliday;
+    }
+
+    private addWorkDays(startDate: Date, days: number, calendar: Calendar): Date {
+        let current = new Date(startDate);
+        let daysAdded = 0;
+
+        // If simpler logic needed: 
+        // 0 duration = same day (start/finish)
+        // 1 duration = start + end same day (if workday)
+
+        // We need to advance 'days' amount of working days.
+        // Standard convention: Finish = Start + Duration - 1 (inclusive)
+        // But for calculation, we find the date that is 'days' working days away.
+
+        // Logic: 
+        // 1. Check if start date itself is working day. If not, move to next working day?
+        // Usually Start Date is assumed valid or moved to next valid.
+        // Let's ensure start is valid first
+        while (!this.isWorkDay(current, calendar)) {
+            current.setDate(current.getDate() + 1);
+        }
+
+        if (days <= 0) return current; // Milestone or zero duration
+
+        // We usually want: Finish Date.
+        // If Duration is 1 day, Finish = Start.
+        // So we iterate (days - 1) times to find Finish.
+
+        let remaining = days - 1;
+        while (remaining > 0) {
+            current.setDate(current.getDate() + 1);
+            if (this.isWorkDay(current, calendar)) {
+                remaining--;
+            }
+        }
+
+        return current;
+    }
+
+    private subtractWorkDays(endDate: Date, days: number, calendar: Calendar): Date {
+        let current = new Date(endDate);
+
+        // Ensure end date is valid working day
+        while (!this.isWorkDay(current, calendar)) {
+            current.setDate(current.getDate() - 1);
+        }
+
+        if (days <= 0) return current;
+
+        let remaining = days - 1;
+        while (remaining > 0) {
+            current.setDate(current.getDate() - 1);
+            if (this.isWorkDay(current, calendar)) {
+                remaining--;
+            }
+        }
+        return current;
+    }
+
     // History for undo/redo
+
     private history: ProjectState[] = [];
     private historyIndex: number = -1;
     private maxHistorySize: number = 50;
 
     constructor() {
-        this.assignMockResources();
+        // Auto-save effect
+        effect(() => {
+            // Monitor state changes if needed for other side effects
+            const state = this.state();
+        });
+
+        if (isPlatformBrowser(this.platformId)) {
+            // Load LAST opened project if available?
+            // For now, ProjectsPage handles loading specific projects.
+        }
+
         this.saveToHistory();
     }
 
+    // Persistence
+    private saveStateToStorage() {
+        const state = this.state();
+        if (isPlatformBrowser(this.platformId) && state.projectId) {
+            localStorage.setItem(`project_${state.projectId}`, JSON.stringify(state));
+        }
+    }
+
     loadProjectState(newState: ProjectState) {
+        // Helper to parse dates recursively or specifically
+        const parseDates = (obj: any): any => {
+            if (!obj) return obj;
+            // If it's the root state, parse specific fields
+            if (obj.projectStartDate) obj.projectStartDate = new Date(obj.projectStartDate);
+            if (obj.projectEndDate) obj.projectEndDate = new Date(obj.projectEndDate);
+            if (obj.statusDate) obj.statusDate = new Date(obj.statusDate);
+
+            if (Array.isArray(obj.activities)) {
+                obj.activities.forEach((a: any) => {
+                    if (a.startDate) a.startDate = new Date(a.startDate);
+                    if (a.earlyStart) a.earlyStart = new Date(a.earlyStart);
+                    if (a.earlyFinish) a.earlyFinish = new Date(a.earlyFinish);
+                    if (a.lateStart) a.lateStart = new Date(a.lateStart);
+                    if (a.lateFinish) a.lateFinish = new Date(a.lateFinish);
+                    if (a.baselineStartDate) a.baselineStartDate = new Date(a.baselineStartDate);
+                    if (a.baselineEndDate) a.baselineEndDate = new Date(a.baselineEndDate);
+                });
+            }
+            // Calendars
+            if (Array.isArray(obj.calendars)) {
+                obj.calendars.forEach((c: any) => {
+                    if (Array.isArray(c.holidays)) {
+                        c.holidays = c.holidays.map((h: any) => new Date(h));
+                    }
+                });
+            }
+            return obj;
+        };
+
+        const parsedState = parseDates(newState);
+
         this.state.set({
-            ...newState,
-            activities: newState.activities || [],
-            dependencies: newState.dependencies || [],
-            resources: newState.resources || []
+            ...parsedState,
+            activities: parsedState.activities || [],
+            dependencies: parsedState.dependencies || [],
+            resources: parsedState.resources || []
         });
-        // Don't auto-schedule on import - let user click Schedule button
+        this.saveStateToStorage();
+        this.recalculateProjectBounds();
         this.saveToHistory();
     }
 
@@ -212,6 +423,9 @@ export class PlanningService {
         } else {
             this.historyIndex++;
         }
+
+        // Also persist to localStorage whenever we save history (major state change)
+        this.saveStateToStorage();
     }
 
     canUndo(): boolean {
@@ -237,7 +451,8 @@ export class PlanningService {
     }
 
     addActivity(parentId: number | null = null) {
-        const newId = Math.max(...this.state().activities.map(a => a.id)) + 1;
+        const currentActivities = this.state().activities;
+        const newId = currentActivities.length > 0 ? Math.max(...currentActivities.map(a => a.id)) + 1 : 1;
         const newActivity: Activity = {
             id: newId,
             name: 'New Activity',
@@ -251,6 +466,7 @@ export class PlanningService {
             ...current,
             activities: [...current.activities, newActivity]
         }));
+        this.recalculateProjectBounds();
         this.saveToHistory();
     }
 
@@ -266,6 +482,7 @@ export class PlanningService {
             activities: current.activities.filter(a => a.id !== activityId),
             dependencies: current.dependencies.filter(d => d.sourceId !== activityId && d.targetId !== activityId)
         }));
+        this.recalculateProjectBounds();
         this.saveToHistory();
     }
 
@@ -274,6 +491,7 @@ export class PlanningService {
             ...current,
             activities: current.activities.map(a => a.id === updatedActivity.id ? updatedActivity : a)
         }));
+        this.recalculateProjectBounds();
         this.saveToHistory();
     }
 
@@ -282,6 +500,7 @@ export class PlanningService {
             ...current,
             dependencies: [...current.dependencies, { id: Date.now(), sourceId, targetId, type }]
         }));
+        this.saveToHistory();
     }
 
     removeDependency(id: number) {
@@ -289,6 +508,7 @@ export class PlanningService {
             ...current,
             dependencies: current.dependencies.filter(d => d.id !== id)
         }));
+        this.saveToHistory();
     }
 
     updateDependency(id: number, updates: Partial<Dependency>) {
@@ -296,6 +516,7 @@ export class PlanningService {
             ...current,
             dependencies: current.dependencies.map(d => d.id === id ? { ...d, ...updates } : d)
         }));
+        this.saveToHistory();
     }
 
     addResource(resource: any) {
@@ -306,6 +527,7 @@ export class PlanningService {
             ...current,
             resources: [...(current.resources || []), { ...resource, id: newId }]
         }));
+        this.saveToHistory();
     }
 
     assignResourceToActivity(activityId: number, resourceId: number, amount: number) {
@@ -421,6 +643,8 @@ export class PlanningService {
 
         sortedIds.forEach(id => {
             const act = actMap.get(id)!;
+            const calendar = this.getCalendar(act.calendarId);
+
             // Milestone Logic: Enforce 0 duration if Milestone
             if (act.type === 'StartMilestone' || act.type === 'FinishMilestone') {
                 act.duration = 0;
@@ -431,28 +655,59 @@ export class PlanningService {
             let earlyStart = new Date(projectStart);
 
             const preds = predecessors.get(id) || [];
+
+            // If no predecessors, default to Project Start (adjusted for calendar)
+            if (preds.length === 0) {
+                // Adjust project start to be a valid workday on this calendar
+                let validStart = new Date(projectStart);
+                while (!this.isWorkDay(validStart, calendar)) {
+                    validStart.setDate(validStart.getDate() + 1);
+                }
+                earlyStart = validStart;
+            }
+
             preds.forEach(dep => {
                 const src = actMap.get(dep.sourceId)!;
                 if (!src.earlyFinish) return;
 
-                let potentialStart = new Date(src.earlyFinish);
+                let potentialStart: Date;
                 const lag = (dep.lag || 0);
 
-                if (dep.type === 'FS') {
-                    potentialStart = new Date(src.earlyFinish);
-                } else if (dep.type === 'SS') {
-                    potentialStart = new Date(src.earlyStart!);
-                } else if (dep.type === 'FF') {
-                    const finishDate = new Date(src.earlyFinish);
-                    finishDate.setDate(finishDate.getDate() + lag);
-                    const derivedStart = new Date(finishDate);
-                    // For milestones, duration is 0, so derivedStart = finishDate
-                    derivedStart.setDate(derivedStart.getDate() - act.duration);
-                    potentialStart = derivedStart;
-                }
+                // Note: Relationships might span different calendars. 
+                // P6 usually uses Predecessor Calendar for lag? Or Successor? 
+                // Simplified: Use Successor Calendar for lag calculation.
 
-                if (dep.type !== 'FF') {
-                    potentialStart.setDate(potentialStart.getDate() + lag);
+                if (dep.type === 'FS') {
+                    // Finish to Start: Start = Pred Finish + Lag + 1 day (next working day)
+                    // Actually, if we use inclusive dates:
+                    // Finish = Fri. Next Start = Mon.
+                    // We generate "Next working day after Finish" + Lag
+
+                    let baseDate = new Date(src.earlyFinish);
+
+                    // Move to next working day (Start of next period)
+                    baseDate.setDate(baseDate.getDate() + 1);
+                    while (!this.isWorkDay(baseDate, calendar)) {
+                        baseDate.setDate(baseDate.getDate() + 1);
+                    }
+
+                    // Add Lag
+                    potentialStart = this.addWorkDays(baseDate, lag + 1, calendar);
+                    // Wait, addWorkDays adds (N-1). If Lag is 0, we want exactly baseDate.
+                    // If addWorkDays(baseDate, 1) -> Returns baseDate. Correct.
+                    // So addWorkDays(baseDate, lag + 1) -> Returns date (lag) days after baseDate.
+                } else if (dep.type === 'SS') {
+                    // Start to Start: Start = Pred Start + Lag
+                    potentialStart = this.addWorkDays(src.earlyStart!, lag + 1, calendar);
+                } else if (dep.type === 'FF') {
+                    // Finish to Finish: Finish = Pred Finish + Lag
+                    // Derived Start = Finish - Duration
+                    const finishDate = this.addWorkDays(src.earlyFinish, lag + 1, calendar);
+                    // Back calculate Start
+                    potentialStart = this.subtractWorkDays(finishDate, act.duration, calendar);
+                } else {
+                    // SF not fully implemented, treat as FS
+                    potentialStart = new Date(src.earlyFinish);
                 }
 
                 if (potentialStart > earlyStart) {
@@ -463,9 +718,8 @@ export class PlanningService {
             act.earlyStart = earlyStart;
             act.startDate = earlyStart;
 
-            const earlyFinish = new Date(earlyStart);
-            earlyFinish.setDate(earlyFinish.getDate() + act.duration);
-            act.earlyFinish = earlyFinish;
+            // Calculate Finish
+            act.earlyFinish = this.addWorkDays(earlyStart, act.duration, calendar);
         });
 
         // 5. Backward Pass (Late Dates & Float)
@@ -482,7 +736,11 @@ export class PlanningService {
             const act = actMap.get(id)!;
             if (this.isParent(id)) return;
 
+            const calendar = this.getCalendar(act.calendarId);
+
             let lateFinish = new Date(projectFinish);
+            let constrained = false;
+
             const succs = successors.get(id) || [];
             if (succs.length > 0) {
                 lateFinish = new Date(8640000000000000); // Far future
@@ -492,17 +750,36 @@ export class PlanningService {
                 const tgt = actMap.get(dep.targetId)!;
                 if (!tgt.lateStart) return;
 
-                let potentialFinish = new Date(tgt.lateStart);
+                let potentialFinish: Date;
                 const lag = (dep.lag || 0);
 
                 if (dep.type === 'FS') {
-                    potentialFinish = new Date(tgt.lateStart);
-                    potentialFinish.setDate(potentialFinish.getDate() - lag);
+                    // Pred Late Finish = Succ Late Start - Lag - 1 day (prev working day)
+                    // Or Succ Start = Pred Finish + Lag + 1
+                    // So Pred Finish = Succ Start - Lag - 1
+
+                    // 1. Shift back Lag
+                    let baseDate = this.subtractWorkDays(tgt.lateStart, lag + 1, calendar);
+
+                    // 2. Shift back 1 day (because FS implies Next Day Start)
+                    // Move to previous working day
+                    baseDate.setDate(baseDate.getDate() - 1);
+                    while (!this.isWorkDay(baseDate, calendar)) {
+                        baseDate.setDate(baseDate.getDate() - 1);
+                    }
+                    potentialFinish = baseDate;
+
                 } else if (dep.type === 'SS') {
-                    const derivedStart = new Date(tgt.lateStart);
-                    derivedStart.setDate(derivedStart.getDate() - lag);
-                    potentialFinish = new Date(derivedStart);
-                    potentialFinish.setDate(potentialFinish.getDate() + act.duration);
+                    // Pred Start = Succ Start - Lag
+                    // So Pred Late Start <= Succ Late Start - Lag
+                    // Derived Late Finish from Late Start
+                    const lateStartLim = this.subtractWorkDays(tgt.lateStart, lag + 1, calendar);
+                    potentialFinish = this.addWorkDays(lateStartLim, act.duration, calendar);
+                } else if (dep.type === 'FF') {
+                    // Pred Finish = Succ Finish - Lag
+                    potentialFinish = this.subtractWorkDays(tgt.lateFinish!, lag + 1, calendar);
+                } else {
+                    potentialFinish = new Date(tgt.lateStart);
                 }
 
                 if (potentialFinish < lateFinish) {
@@ -511,9 +788,8 @@ export class PlanningService {
             });
 
             act.lateFinish = lateFinish;
-            const lateStart = new Date(lateFinish);
-            lateStart.setDate(lateStart.getDate() - act.duration);
-            act.lateStart = lateStart;
+            // Calculate Late Start
+            act.lateStart = this.subtractWorkDays(lateFinish, act.duration, calendar);
 
             const diffTime = act.lateStart.getTime() - act.earlyStart!.getTime();
             act.totalFloat = Math.round(diffTime / (1000 * 3600 * 24));
@@ -528,7 +804,51 @@ export class PlanningService {
             activities: activities
         }));
 
+        this.recalculateProjectBounds();
         this.saveToHistory();
+    }
+
+    private recalculateProjectBounds() {
+        const state = this.state();
+        const activities = state.activities;
+
+        if (!activities || activities.length === 0) return;
+
+        let minStart = new Date(state.projectStartDate);
+        let maxEnd = new Date(state.projectEndDate);
+
+        // Flag to check if we actually need to change anything to avoid infinite loops if we were using effects
+        let changed = false;
+
+        // Iterate all activities to find true bounds
+        activities.forEach(a => {
+            const start = a.startDate ? new Date(a.startDate) : null;
+            // End date = Start + Duration days
+            // Approximate end date for bounds check
+            const end = start ? new Date(start.getTime() + (a.duration || 1) * 24 * 60 * 60 * 1000) : null;
+
+            if (start && start < minStart) {
+                minStart = start;
+                changed = true;
+            }
+            if (end && end > maxEnd) {
+                maxEnd = end;
+                changed = true;
+            }
+        });
+
+        // Add buffer if we extended bounds
+        if (changed) {
+            // Buffer: 7 days
+            const bufferTime = 7 * 24 * 60 * 60 * 1000;
+            maxEnd = new Date(maxEnd.getTime() + bufferTime);
+
+            this.state.update(s => ({
+                ...s,
+                projectStartDate: minStart,
+                projectEndDate: maxEnd
+            }));
+        }
     }
 
     // WBS Rollup Helper (Recursive Bottom-Up)
@@ -744,16 +1064,34 @@ export class PlanningService {
             allocation.get(resId)!.set(dateStr, current + amount);
         };
 
-        const canSchedule = (act: Activity, startDate: Date): boolean => {
+        // Helper to get next working day
+        const getNextWorkDay = (date: Date, calendar: Calendar): Date => {
+            const next = new Date(date);
+            next.setDate(next.getDate() + 1);
+            while (!this.isWorkDay(next, calendar)) {
+                next.setDate(next.getDate() + 1);
+            }
+            return next;
+        };
+
+        const canSchedule = (act: Activity, startDate: Date, calendar: Calendar): boolean => {
             if (!act.resourceItems || act.resourceItems.length === 0) return true;
+
+            let currentDay = new Date(startDate);
+            // Must start on valid working day
+            if (!this.isWorkDay(currentDay, calendar)) return false;
+
             for (let i = 0; i < act.duration; i++) {
-                const currentDay = new Date(startDate);
-                currentDay.setDate(currentDay.getDate() + i);
                 const dateStr = currentDay.toISOString().split('T')[0];
                 for (const item of act.resourceItems) {
                     const limit = resourceLimits.get(item.resourceId) || 1;
                     const used = getUsed(item.resourceId, dateStr);
                     if (used + item.amount > limit) return false;
+                }
+
+                // Advance to next working day if there are more days
+                if (i < act.duration - 1) {
+                    currentDay = getNextWorkDay(currentDay, calendar);
                 }
             }
             return true;
@@ -815,49 +1153,89 @@ export class PlanningService {
             // Double check: if it was already scheduled? (Shouldn't be)
             if (scheduledIds.has(act.id)) continue;
 
+            const calendar = this.getCalendar(act.calendarId);
+
             // Calculate Effective Start (based on predecessors' LEVELED finish)
             let effectiveStart = new Date(act.earlyStart || act.startDate);
             const preds = state.dependencies.filter(d => d.targetId === act.id);
             preds.forEach(p => {
                 const source = activityMap.get(p.sourceId);
                 if (source && (scheduledIds.has(source.id) || source.type?.includes('Milestone'))) {
-                    const sourceFinish = new Date(source.startDate);
-                    sourceFinish.setDate(sourceFinish.getDate() + source.duration);
+                    // Start logic based on dependency type
+                    // For FS: Finish + 1 (work day check handled below)
+                    let sourceFinish = new Date(source.startDate);
+                    // We need source FINISH date. 
+                    // Since source.startDate is set to its leveled date...
+                    // We should re-calculate finish? 
+                    // Actually source.startDate IS the start.
+                    // We can use addWorkDays to find finish efficiently.
+                    // sourceFinish = this.addWorkDays(source.startDate, source.duration, sourceCal) ?
+                    // But simpler: we know predecessors are scheduled.
 
-                    // Assuming FS Logic for now
+                    // Let's assume FS Logic mainly
                     if (p.type === 'FS') {
-                        if (sourceFinish > effectiveStart) effectiveStart = sourceFinish;
+                        // Get source calendar
+                        const sCal = this.getCalendar(source.calendarId);
+                        const sFinish = this.addWorkDays(new Date(source.startDate), source.duration, sCal);
+
+                        // Target Start = sFinish + Lag + NextWorkDay
+                        // Move to next working day on TARGET calendar (or src? usually target or proj default)
+                        // Standard: Lag is on successor calendar (often). 
+
+                        let potentialStart = new Date(sFinish);
+                        potentialStart.setDate(potentialStart.getDate() + 1); // Start of next day
+
+                        // Ensure valid workday on TARGET calendar
+                        while (!this.isWorkDay(potentialStart, calendar)) {
+                            potentialStart.setDate(potentialStart.getDate() + 1);
+                        }
+                        // Add Lag
+                        potentialStart = this.addWorkDays(potentialStart, p.lag ? p.lag + 1 : 1, calendar);
+
+                        if (potentialStart > effectiveStart) effectiveStart = potentialStart;
                     }
-                    // Add other types if needed (SS etc)
                 }
             });
+
+            // Ensure effectiveStart is valid workday to begin with
+            while (!this.isWorkDay(effectiveStart, calendar)) {
+                effectiveStart.setDate(effectiveStart.getDate() + 1);
+            }
 
             // Find Slot
             let testStart = new Date(effectiveStart);
             let delayed = false;
             let attempts = 0;
             // Limit lookahead to prevent infinite loop
-            while (!canSchedule(act, testStart) && attempts < 365) {
-                testStart.setDate(testStart.getDate() + 1);
+            while (!canSchedule(act, testStart, calendar) && attempts < 365) {
+                // Try next working day
+                testStart = getNextWorkDay(testStart, calendar);
                 delayed = true;
                 attempts++;
             }
 
             // Commit
             if (act.resourceItems) {
+                let currentDay = new Date(testStart);
                 for (let i = 0; i < act.duration; i++) {
-                    const currentDay = new Date(testStart);
-                    currentDay.setDate(currentDay.getDate() + i);
                     const dateStr = currentDay.toISOString().split('T')[0];
                     for (const item of act.resourceItems) {
                         addUsage(item.resourceId, dateStr, item.amount);
+                    }
+                    if (i < act.duration - 1) {
+                        currentDay = getNextWorkDay(currentDay, calendar);
                     }
                 }
             }
 
             // Update
             act.startDate = testStart;
-            const es = new Date(act.earlyStart || act.startDate);
+            // Recalculate diff 
+            const es = new Date(act.earlyStart || act.startDate); // Note: original earlyStart might be old if we didn't preserve it well? 
+            // Actually act.earlyStart was set in scheduleProject() at step 1.
+            // But we might have mutated acts in previous loops? 
+            // In CPM earlyStart is property.
+
             const diff = (testStart as Date).getTime() - (es as Date).getTime();
             act.levelingDelay = Math.round(diff / (1000 * 3600 * 24));
 
@@ -891,8 +1269,8 @@ export class PlanningService {
         // Recalculate Project End Date (Calendar Bars coverage)
         let maxEnd = new Date(this.state().projectStartDate);
         activities.forEach(a => {
-            const finish = new Date(a.startDate);
-            finish.setDate(finish.getDate() + a.duration);
+            const cal = this.getCalendar(a.calendarId);
+            const finish = this.addWorkDays(new Date(a.startDate), a.duration, cal);
             if (finish > maxEnd) maxEnd = finish;
         });
 
@@ -915,40 +1293,6 @@ export class PlanningService {
 
     isParent(activityId: number): boolean {
         return this.state().activities.some(a => a.parentId === activityId);
-    }
-
-    // Calendar Utilities
-    getCalendar(calendarId?: number): any {
-        const calendars = this.state().calendars || [];
-        const id = calendarId || this.state().defaultCalendarId || 1;
-        return calendars.find(c => c.id === id) || calendars[0];
-    }
-
-    isWorkingDay(date: Date, calendarId?: number): boolean {
-        const calendar = this.getCalendar(calendarId);
-        if (!calendar) return true;
-
-        const dateStr = date.toDateString();
-        if (calendar.holidays?.some((h: Date) => new Date(h).toDateString() === dateStr)) {
-            return false;
-        }
-
-        const dayOfWeek = date.getDay();
-        return calendar.workDays[dayOfWeek];
-    }
-
-    addWorkingDays(startDate: Date, days: number, calendarId?: number): Date {
-        const result = new Date(startDate);
-        let daysAdded = 0;
-
-        while (daysAdded < days) {
-            result.setDate(result.getDate() + 1);
-            if (this.isWorkingDay(result, calendarId)) {
-                daysAdded++;
-            }
-        }
-
-        return result;
     }
 
     // EVM Calculation

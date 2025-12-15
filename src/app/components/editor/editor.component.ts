@@ -2,7 +2,7 @@ import { Component, inject, computed, signal, Output, EventEmitter } from '@angu
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PlanningService } from '../../services/planning.service';
-import { Resource } from '../../models/planning.models';
+import { Resource, Calendar } from '../../models/planning.models';
 import { XerExporterService } from '../../services/xer-exporter.service';
 import { SCurvesChartComponent } from '../s-curves-chart/s-curves-chart.component';
 
@@ -30,6 +30,11 @@ export class EditorComponent {
 
     // Calendars
     calendars = computed(() => this.planningService.state().calendars || []);
+
+    // Calendar Management State
+    editingCalendar = signal<Calendar | null>(null);
+    isNewCalendar = signal(false);
+    newHolidayDate = signal<string>(''); // YYYY-MM-DD string from input
 
     // S-Curves Modal
     showSCurves = signal(false);
@@ -140,5 +145,88 @@ export class EditorComponent {
 
     closeSCurves() {
         this.showSCurves.set(false);
+    }
+
+    // Calendar Methods
+    startAddCalendar() {
+        const newCal: Calendar = {
+            id: 0, // Temp ID
+            name: 'New Calendar',
+            isDefault: false,
+            workDays: [false, true, true, true, true, true, false],
+            workHoursPerDay: 8,
+            holidays: []
+        };
+        this.editingCalendar.set(newCal);
+        this.isNewCalendar.set(true);
+    }
+
+    editCalendar(cal: Calendar) {
+        // Deep copy to avoid mutating state directly
+        const copy: Calendar = {
+            ...cal,
+            workDays: [...cal.workDays],
+            holidays: [...cal.holidays]
+        };
+        this.editingCalendar.set(copy);
+        this.isNewCalendar.set(false);
+    }
+
+    saveCalendar() {
+        const cal = this.editingCalendar();
+        if (!cal) return;
+
+        if (this.isNewCalendar()) {
+            this.planningService.addCalendar(cal);
+        } else {
+            this.planningService.updateCalendar(cal);
+        }
+        this.editingCalendar.set(null);
+    }
+
+    cancelEditCalendar() {
+        this.editingCalendar.set(null);
+    }
+
+    deleteCalendar(calId: number) {
+        if (confirm('Are you sure you want to delete this calendar? Activities using it will be reset to default.')) {
+            this.planningService.deleteCalendar(calId);
+        }
+    }
+
+    toggleWorkDay(index: number) {
+        const cal = this.editingCalendar();
+        if (cal) {
+            const days = [...cal.workDays];
+            days[index] = !days[index];
+            this.editingCalendar.set({ ...cal, workDays: days });
+        }
+    }
+
+    addHoliday() {
+        const cal = this.editingCalendar();
+        const dateStr = this.newHolidayDate();
+        if (cal && dateStr) {
+            const date = new Date(dateStr);
+            if (!isNaN(date.getTime())) {
+                // Determine if already exists
+                const exists = cal.holidays.some(h => new Date(h).toDateString() === date.toDateString());
+                if (!exists) {
+                    this.editingCalendar.set({
+                        ...cal,
+                        holidays: [...cal.holidays, date]
+                    });
+                    this.newHolidayDate.set('');
+                }
+            }
+        }
+    }
+
+    removeHoliday(index: number) {
+        const cal = this.editingCalendar();
+        if (cal) {
+            const hols = cal.holidays.filter((_, i) => i !== index);
+            this.editingCalendar.set({ ...cal, holidays: hols });
+        }
     }
 }

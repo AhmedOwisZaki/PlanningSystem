@@ -91,4 +91,5 @@ export interface ProjectState {
     defaultCalendarId?: number;
     projectBudget?: number;
     statusDate?: Date;
+    projectId?: number; // For persistence tracking
 }

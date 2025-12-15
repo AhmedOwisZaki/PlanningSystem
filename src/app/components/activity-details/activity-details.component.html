@@ -28,6 +28,14 @@
             </select>
         </div>
         <div class="detail-item">
+            <label>Calendar:</label>
+            <select [value]="selectedActivity()!.calendarId" (change)="onCalendarChange($event)">
+                <option *ngFor="let cal of calendars()" [value]="cal.id">
+                    {{ cal.name }} {{ cal.isDefault ? '(Default)' : '' }}
+                </option>
+            </select>
+        </div>
+        <div class="detail-item">
             <label>Start Date:</label>
             <span>{{ selectedActivity()!.startDate | date:'mediumDate' }}</span>
         </div>
