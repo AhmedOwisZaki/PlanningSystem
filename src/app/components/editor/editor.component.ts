@@ -162,6 +162,12 @@ export class EditorComponent {
         }
     }
 
+    levelResources() {
+        if (confirm('Level resources? This will delay activities based on resource availability limits.')) {
+            this.planningService.levelResources();
+        }
+    }
+
     // Calendar Methods
     startAddCalendar() {
         const newCal: Calendar = {

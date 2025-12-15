@@ -57,32 +57,79 @@
     <!-- Main Split Chart -->
     <div class="gantt-body">
         <!-- Left Panel: Task List -->
-        <div class="task-list-panel">
-            <div class="task-list-header" [style.height.px]="headerHeight">
-                <div class="col-name">
-                    Activity Name
-                    <div class="header-controls">
-                        <button class="mini-btn" (click)="handleZoom(100)" title="Zoom Out">-</button>
-                        <button class="mini-btn" (click)="handleZoom(-100)" title="Zoom In">+</button>
-                    </div>
+        <!-- Left Panel: Grid -->
+        <!-- Left Panel: Grid -->
+        <!-- Left Panel: Grid -->
+        <div class="task-list-panel" [style.width.px]="taskListWidth()">
+            <div class="grid-header" [style.height.px]="headerHeight">
+                <div class="grid-col col-id" [style.width.px]="colIdWidth()">
+                    Activity ID
+                    <div class="column-resize-handle" (mousedown)="onColumnResizeStart($event, 'id')"></div>
                 </div>
-                <div class="col-date">Start</div>
-                <div class="col-dur">Dur.</div>
+                <div class="grid-col col-status" [style.width.px]="colStatusWidth()">
+                    <div class="column-resize-handle" (mousedown)="onColumnResizeStart($event, 'status')"></div>
+                </div>
+                <div class="grid-col col-name" [style.width.px]="colNameWidth()">
+                    Activity Name
+                    <div class="column-resize-handle" (mousedown)="onColumnResizeStart($event, 'name')"></div>
+                </div>
+                <div class="grid-col col-dur" [style.width.px]="colDurWidth()">
+                    OD
+                    <div class="column-resize-handle" (mousedown)="onColumnResizeStart($event, 'dur')"></div>
+                </div>
+                <div class="grid-col col-date" [style.width.px]="colDateWidth()">
+                    Start
+                    <div class="column-resize-handle" (mousedown)="onColumnResizeStart($event, 'date')"></div>
+                </div>
+                <div class="grid-col col-date" [style.width.px]="colDateWidth()">
+                    Finish
+                    <div class="column-resize-handle" (mousedown)="onColumnResizeStart($event, 'date')"></div>
+                </div>
+                <div class="grid-col col-float" [style.width.px]="colFloatWidth()">
+                    Total Float
+                    <div class="column-resize-handle" (mousedown)="onColumnResizeStart($event, 'float')"></div>
+                </div>
             </div>
             <div class="task-list-rows" (scroll)="onTaskListScroll($event)">
-                <div class="task-row" *ngFor="let activity of visibleActivities()"
-                    [style.background-color]="getPhaseColor(activity)" [class.root-project]="activity.id === 0"
-                    [class.selected]="selectedActivity()?.id === activity.id" (click)="selectActivity(activity, $event)"
+                <!-- ... existing rows ... -->
+                <div class="task-row" *ngFor="let activity of visibleActivities()" [ngClass]="getWbsClass(activity)"
+                    [class.root-project]="activity.id === 0" [class.selected]="selectedActivity()?.id === activity.id"
+                    [class.wbs-row]="isParentActivity(activity)" (click)="selectActivity(activity, $event)"
                     (dblclick)="onActivityDoubleClick(activity, $event)">
-                    <div class="col-name" [style.padding-left.px]="getActivityLevel(activity) * 40"><span
-                            class="expand-icon" *ngIf="isParentActivity(activity)"
-                            (click)="toggleActivity(activity, $event)">{{ activity.isExpanded ? "-" : "+" }}</span><span
-                            [class.parent-activity]="isParentActivity(activity)">{{ activity.name }}</span></div>
-                    <div class="col-date">{{ activity.startDate | date:'shortDate' }}</div>
-                    <div class="col-dur">{{ activity.duration }}d</div>
+
+                    <div class="grid-col col-id" [style.width.px]="colIdWidth()">{{ activity.id }}</div>
+
+                    <div class="grid-col col-status" [style.width.px]="colStatusWidth()">
+                        <span *ngIf="activity.percentComplete === 100">✓</span>
+                        <span *ngIf="activity.isCritical && activity.percentComplete !== 100"
+                            style="color: red;">!</span>
+                    </div>
+
+                    <div class="grid-col col-name" [style.width.px]="colNameWidth()"
+                        [style.padding-left.px]="getActivityLevel(activity) * 20">
+                        <span class="expand-icon" *ngIf="isParentActivity(activity)"
+                            (click)="toggleActivity(activity, $event)">
+                            {{ activity.isExpanded ? "-" : "+" }}
+                        </span>
+                        <span [class.parent-activity]="isParentActivity(activity)">{{ activity.name }}</span>
+                    </div>
+
+                    <div class="grid-col col-dur" [style.width.px]="colDurWidth()">{{ activity.duration }}</div>
+                    <div class="grid-col col-date" [style.width.px]="colDateWidth()">{{ activity.startDate |
+                        date:'dd-MMM-yy' }}</div>
+                    <div class="grid-col col-date" [style.width.px]="colDateWidth()">
+                        {{ (activity.lateFinish || activity.earlyFinish || activity.endDate) | date:'dd-MMM-yy' }}
+                    </div>
+                    <div class="grid-col col-float" [style.width.px]="colFloatWidth()"
+                        [style.color]="(activity.totalFloat || 0) <= 0 ? 'red' : 'black'">
+                        {{ activity.totalFloat || 0 }}
+                    </div>
                 </div>
             </div>
         </div>
+
+        <!-- Draggable Splitter -->
+        <div class="gutter-splitter" (mousedown)="onSplitterMouseDown($event)"></div>
 
         <!-- Right Panel: Timelne -->
         <div class="timeline-panel" (scroll)="onTimelineScroll($event)">

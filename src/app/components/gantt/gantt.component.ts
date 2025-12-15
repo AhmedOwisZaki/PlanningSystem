@@ -27,6 +27,29 @@ export class GanttComponent {
     '#fce4ec', // Light Pink
   ];
 
+  getWbsClass(activity: any): string {
+    // 1. Root (Project)
+    if (activity.id === 0) return 'wbs-root';
+
+    // 2. Check Level for WBS Bands
+    if (this.isParentActivity(activity)) {
+      const level = this.getActivityLevel(activity);
+      // P6 colors typically cycle: 
+      // L1=Blue, L2=Green, L3=Yellow, L4=Red, L5=Magenta, L6=Grey
+      switch (level) {
+        case 1: return 'wbs-level-1';
+        case 2: return 'wbs-level-2';
+        case 3: return 'wbs-level-3';
+        case 4: return 'wbs-level-4';
+        case 5: return 'wbs-level-5';
+        case 6: return 'wbs-level-6';
+        default: return 'wbs-level-x';
+      }
+    }
+
+    return '';
+  }
+
   getPhaseColor(activity: any): string {
     // 1. Identify the Phase ancestor (child of Root ID 0)
     let current = activity;
@@ -67,6 +90,22 @@ export class GanttComponent {
   projectStartDate = this.planningService.projectStartDate;
   projectEndDate = this.planningService.projectEndDate;
   projectState = this.planningService.state;
+
+  // Resizable Panel State
+  taskListWidth = signal(600);
+  isResizingPanel = false;
+
+  // Resizable Column State
+  colIdWidth = signal(60);
+  colStatusWidth = signal(30);
+  colNameWidth = signal(200); // Activity Name column
+  colDurWidth = signal(40);
+  colDateWidth = signal(80);
+  colFloatWidth = signal(50);
+  isResizingColumn = false;
+  resizingColumnName: string | null = null;
+  columnDragStartX = 0;
+  columnDragStartWidth = 0;
 
   // View settings
   dayWidth = 40; // pixels per day
@@ -302,6 +341,7 @@ export class GanttComponent {
   private isResizing = false;
   private resizeDirection: 'left' | 'right' | null = null;
   private dragStartX = 0;
+  private dragStartWidth = 0; // For panel resize
   private dragActivityId: number | null = null;
   private dragOriginalStart: Date | null = null;
   private dragOriginalDuration: number | null = null;
@@ -393,6 +433,35 @@ export class GanttComponent {
   // Selected activity for details panel (from service)
   selectedActivity = this.planningService.selectedActivity;
 
+  onSplitterMouseDown(event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isResizingPanel = true;
+    this.dragStartX = event.clientX;
+    this.dragStartWidth = this.taskListWidth();
+    this.addGlobalListeners();
+  }
+
+  onColumnResizeStart(event: MouseEvent, columnName: string) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isResizingColumn = true;
+    this.resizingColumnName = columnName;
+    this.columnDragStartX = event.clientX;
+
+    // Get current width based on column name
+    switch (columnName) {
+      case 'id': this.columnDragStartWidth = this.colIdWidth(); break;
+      case 'status': this.columnDragStartWidth = this.colStatusWidth(); break;
+      case 'name': this.columnDragStartWidth = this.colNameWidth(); break;
+      case 'dur': this.columnDragStartWidth = this.colDurWidth(); break;
+      case 'date': this.columnDragStartWidth = this.colDateWidth(); break;
+      case 'float': this.columnDragStartWidth = this.colFloatWidth(); break;
+    }
+
+    this.addGlobalListeners();
+  }
+
   onTaskMouseDown(event: MouseEvent, activity: any) {
     if (this.isLinking) return;
 
@@ -462,13 +531,39 @@ export class GanttComponent {
   }
 
   private onMouseMove = (event: MouseEvent) => {
-    if (this.isDragging) {
+    if (this.isResizingColumn) {
+      this.handleColumnResize(event);
+    } else if (this.isResizingPanel) {
+      this.handlePanelResize(event);
+    } else if (this.isDragging) {
       this.handleTaskMove(event);
     } else if (this.isResizing) {
       this.handleTaskResize(event);
     } else if (this.isLinking) {
       this.handleLinkMove(event);
     }
+  }
+
+  private handleColumnResize(event: MouseEvent) {
+    if (!this.resizingColumnName) return;
+
+    const deltaX = event.clientX - this.columnDragStartX;
+    const newWidth = Math.max(30, this.columnDragStartWidth + deltaX); // Min width 30px
+
+    switch (this.resizingColumnName) {
+      case 'id': this.colIdWidth.set(newWidth); break;
+      case 'status': this.colStatusWidth.set(newWidth); break;
+      case 'name': this.colNameWidth.set(newWidth); break;
+      case 'dur': this.colDurWidth.set(newWidth); break;
+      case 'date': this.colDateWidth.set(newWidth); break;
+      case 'float': this.colFloatWidth.set(newWidth); break;
+    }
+  }
+
+  private handlePanelResize(event: MouseEvent) {
+    const deltaX = event.clientX - this.dragStartX;
+    const newWidth = Math.max(200, Math.min(1200, this.dragStartWidth + deltaX));
+    this.taskListWidth.set(newWidth);
   }
 
   private handleTaskResize(event: MouseEvent) {
@@ -576,6 +671,9 @@ export class GanttComponent {
 
     this.isDragging = false;
     this.isLinking = false;
+    this.isResizingPanel = false; // Reset panel resize
+    this.isResizingColumn = false; // Reset column resize
+    this.resizingColumnName = null;
     this.isResizing = false;
     this.resizeDirection = null;
     this.dragActivityId = null;
@@ -698,9 +796,14 @@ export class GanttComponent {
 
     const taskList = event.target as HTMLElement;
     const timeline = document.querySelector('.timeline-panel') as HTMLElement;
+    const header = document.querySelector('.grid-header') as HTMLElement;
 
     if (timeline) {
       timeline.scrollTop = taskList.scrollTop;
+    }
+
+    if (header) {
+      header.scrollLeft = taskList.scrollLeft;
     }
 
     setTimeout(() => this.isSyncingRight = false, 10);

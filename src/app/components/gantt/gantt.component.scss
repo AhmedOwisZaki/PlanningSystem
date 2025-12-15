@@ -30,140 +30,292 @@
 
 /* Left Panel */
 .task-list-panel {
-  width: 350px;
-  border-right: 1px solid #ddd;
+  /* width: 600px;  <-- REMOVE FIXED WIDTH */
+  /* border-right: 1px solid #ccc;  <-- REMOVED (splitter handles border) */
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   z-index: 2;
   background: white;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  min-height: 0;
+  overflow-x: scroll;
+  /* Horizontal scrollbar at panel level */
+  overflow-y: hidden;
+  /* Vertical scroll handled by rows */
 }
 
-.task-list-header {
+.gutter-splitter {
+  width: 6px;
+  cursor: col-resize;
+  background-color: #f1f3f5;
+  border-left: 1px solid #dee2e6;
+  border-right: 1px solid #dee2e6;
+  flex-shrink: 0;
+  z-index: 3;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: #339af0;
+  }
+}
+
+
+
+.grid-header {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  background: #f1f3f5;
+  background: #e9ecef;
+  background: linear-gradient(to bottom, #f8f9fa, #e9ecef);
   font-weight: 600;
-  font-size: 0.85rem;
-  color: #495057;
-  border-bottom: 1px solid #ddd;
+  font-size: 0.75rem;
+  color: #212529;
+  border-bottom: 2px solid #999;
+  border-top: 1px solid #ccc;
+  overflow-x: hidden;
+  /* Header doesn't scroll independently */
+  overflow-y: hidden;
+  min-width: 800px;
+  /* Ensure header width matches row min-width */
 
-  div {
-    padding: 0 10px;
-  }
-
-  .col-name {
-    flex: 1;
+  .grid-col {
+    padding: 0 5px;
+    border-right: 1px solid #ccc;
+    height: 100%;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-  }
+    justify-content: center;
+    position: relative;
+    /* For resize handle positioning */
 
-  .header-controls {
-    display: flex;
-    gap: 4px;
-
-    .mini-btn {
-      width: 20px;
-      height: 20px;
-      padding: 0;
-      border: 1px solid #ced4da;
-      background: #fff;
-      border-radius: 3px;
-      color: #495057;
-      font-size: 14px;
-      line-height: 1;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-      &:hover {
-        background: #e9ecef;
-        color: #228be6;
-        border-color: #339af0;
-      }
+    &.col-name {
+      justify-content: flex-start;
     }
   }
+}
 
-  .col-date {
-    width: 80px;
-  }
+/* Column Resize Handle */
+.column-resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 10;
 
-  .col-dur {
-    width: 50px;
-    text-align: center;
+  &:hover {
+    background: rgba(51, 154, 240, 0.3);
   }
 }
 
 .task-list-rows {
-  overflow-y: hidden;
-  /* Sync scroll with timeline later? */
+  flex: 1;
+  min-height: 0;
+  /* Critical for flex child scrolling */
+  overflow-y: auto;
+  overflow-x: scroll;
+  /* Horizontal scrollbar at rows level */
+  background-color: #fff;
 }
 
 .task-row {
   display: flex;
   align-items: center;
-  border-bottom: 1px solid #f1f1f1;
-  font-size: 0.9rem;
-  color: #333;
+  border-bottom: 1px solid #dde2e5;
+  /* lighter horizontal lines */
+  font-size: 0.8rem;
+  /* P6 is compact */
+  color: #212529;
   box-sizing: border-box;
   height: 30px;
-  /* Enforce height in CSS as well */
+  /* Standard P6 row height */
   overflow: hidden;
-  /* Prevent content expansion */
+  min-width: 800px;
+  /* Force scrollbar by ensuring rows are wider than typical container */
 
-  div {
-    padding: 0 10px;
+  /* Alternating row colors for regular tasks */
+  &:nth-child(even):not(.wbs-row) {
+    background-color: #fafaf8;
+  }
+
+  /* GRID COLUMNS */
+  .grid-col {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    padding: 0 5px;
+    border-right: 1px solid #dde2e5;
+    /* lighter vertical lines */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .col-id {
+    width: 60px;
+    min-width: 60px;
+    flex-shrink: 0;
+    justify-content: center;
+  }
+
+  .col-status {
+    width: 30px;
+    min-width: 30px;
+    flex-shrink: 0;
+    justify-content: center;
+    font-weight: bold;
   }
 
   .col-name {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 100px;
+    border-right: 1px solid #ccc;
+    /* Stronger divider */
+  }
+
+  .col-dur {
+    width: 40px;
+    min-width: 40px;
+    flex-shrink: 0;
+    justify-content: center;
   }
 
   .col-date {
     width: 80px;
-    font-size: 0.8rem;
-    color: #666;
+    min-width: 80px;
+    flex-shrink: 0;
+    justify-content: center;
   }
 
-  .col-dur {
+  .col-float {
     width: 50px;
-    text-align: center;
-    font-size: 0.8rem;
-    color: #666;
+    min-width: 50px;
+    flex-shrink: 0;
+    justify-content: center;
   }
 
-  &:hover {
-    filter: brightness(0.95);
+  &:hover:not(.wbs-row) {
+    background-color: #e2e6ea;
   }
 
   &.selected {
-    outline: 2px solid #e62222;
-    outline-offset: -2px;
-    background-color: rgba(230, 34, 34, 0.1) !important;
-    z-index: 2;
+    background-color: #228be6 !important;
+    /* Selected Blue */
+    color: white !important;
+
+    .grid-col {
+      border-right-color: #1971c2;
+    }
+  }
+}
+
+/* WBS BANDS COLORS */
+/* WBS BANDS COLORS (Authentic P6) */
+.task-row.wbs-row {
+  color: #000;
+  font-weight: 600;
+  border-bottom: 1px solid #999;
+
+  .col-name {
+    font-weight: 700;
   }
 
-  &.root-project {
-    position: relative;
-    z-index: 1;
+  &.wbs-root {
+    background-color: #808080 !important;
+    color: white !important;
+  }
 
-    &::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      right: -100vw; // Extend far to the right
-      top: 0;
-      bottom: 0;
-      background-color: #e9ecef;
-      z-index: -1;
-      pointer-events: none;
+  /* Grey for Project */
+
+  &.wbs-level-1 {
+    background-color: #6767db !important;
+    /* Navy Blue */
+    color: rgba(255, 255, 255, 0.699) !important;
+
+    .expand-icon {
+      color: rgb(224, 17, 17) !important;
     }
+  }
+
+  &.wbs-level-2 {
+    background-color: #008000 !important;
+    /* Green */
+    color: white !important;
+
+    .expand-icon {
+      color: white !important;
+    }
+  }
+
+  &.wbs-level-3 {
+    background-color: #ffffc0 !important;
+    /* Pale Yellow */
+    color: black !important;
+  }
+
+  &.wbs-level-4 {
+    background-color: #ffc0c0 !important;
+    /* Pale Red/Pink */
+    color: black !important;
+  }
+
+  &.wbs-level-5 {
+    background-color: #c0ffff !important;
+    color: black !important;
+  }
+
+  /* Cyan */
+  &.wbs-level-6 {
+    background-color: #c0c0c0 !important;
+    color: black !important;
+  }
+
+  /* Grey */
+
+  &.wbs-level-x {
+    background-color: #ffffff !important;
+    color: black !important;
+  }
+}
+
+/* Override header widths to match row columns */
+.grid-header {
+  .col-id {
+    width: 60px;
+    min-width: 60px;
+    flex-shrink: 0;
+  }
+
+  .col-status {
+    width: 30px;
+    min-width: 30px;
+    flex-shrink: 0;
+  }
+
+  .col-name {
+    flex-shrink: 0;
+    min-width: 100px;
+  }
+
+  .col-dur {
+    width: 40px;
+    min-width: 40px;
+    flex-shrink: 0;
+  }
+
+  .col-date {
+    width: 80px;
+    min-width: 80px;
+    flex-shrink: 0;
+  }
+
+  .col-float {
+    width: 50px;
+    min-width: 50px;
+    flex-shrink: 0;
   }
 }
 
@@ -811,7 +963,7 @@
 .task-list-panel {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  /* overflow: hidden; <-- Removed */
   /* Header fixed, rows scroll */
 }
 
