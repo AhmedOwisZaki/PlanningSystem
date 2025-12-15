@@ -129,6 +129,34 @@
     }
 }
 
+.btn-baseline {
+    background: #fab005;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    width: 100%;
+    margin-bottom: 0.5rem;
+
+    &:hover {
+        background: #f08c00;
+        transform: translateY(-2px);
+    }
+}
+
+.hint-text {
+    font-size: 0.8rem;
+    color: #868e96;
+    font-style: italic;
+    margin: 0;
+    text-align: center;
+}
+
 /* Resources Header */
 .resources-header {
     display: flex;

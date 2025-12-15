@@ -29,6 +29,8 @@ export interface Activity {
     earningType?: 'Duration' | 'Physical' | 'Steps';
     // Calendar
     calendarId?: number;
+    // Activity Codes: Map of CodeDefinitionID -> CodeValueID
+    assignedCodes?: { [definitionId: number]: number };
 }
 
 export interface ActivityStep {
@@ -92,4 +94,22 @@ export interface ProjectState {
     projectBudget?: number;
     statusDate?: Date;
     projectId?: number; // For persistence tracking
+
+    // Activity Codes
+    activityCodeDefinitions?: ActivityCodeDefinition[];
+}
+
+export interface ActivityCodeDefinition {
+    id: number;
+    name: string; // e.g. "Location", "Phase"
+    maxLength?: number;
+    values: ActivityCodeValue[];
+}
+
+export interface ActivityCodeValue {
+    id: number;
+    codeId: number; // Link to definition
+    value: string; // e.g. "Floor 1"
+    description?: string;
+    color?: string; // Optional for visualization
 }

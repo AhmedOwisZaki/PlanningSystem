@@ -140,6 +140,8 @@ export class PlanningService {
     projectEndDate = computed(() => this.state().projectEndDate);
 
     resourceTypes = computed(() => this.state().resourceTypes);
+    // Code Accessors
+    activityCodeDefinitions = computed(() => this.state().activityCodeDefinitions || []);
 
     // Selected Activity (shared between components)
     selectedActivity = signal<Activity | null>(null);
@@ -919,6 +921,127 @@ export class PlanningService {
         }
     }
 
+
+    // Baseline Management
+    assignBaseline() {
+        this.state.update(current => {
+            const activities = current.activities.map(a => ({
+                ...a,
+                baselineStartDate: a.startDate ? new Date(a.startDate) : undefined,
+                baselineEndDate: a.startDate ? new Date(new Date(a.startDate).getTime() + (a.duration * 24 * 3600 * 1000)) : undefined
+            }));
+            return { ...current, activities };
+        });
+        this.saveToHistory();
+        this.saveStateToStorage();
+    }
+
+    createBaseline() {
+        if (!confirm("Are you sure you want to capture the current schedule as the baseline? This will overwrite any existing baseline.")) return;
+
+        this.state.update(current => {
+            const activities = current.activities.map(a => {
+                const start = new Date(a.startDate);
+                const end = new Date(start);
+                end.setDate(end.getDate() + a.duration);
+                return {
+                    ...a,
+                    baselineStartDate: start,
+                    baselineEndDate: end
+                };
+            });
+            return { ...current, activities };
+        });
+        this.saveToHistory();
+    }
+
+    clearBaseline() {
+        if (!confirm("Are you sure you want to clear the baseline?")) return;
+
+        this.state.update(current => {
+            const activities = current.activities.map(a => {
+                const { baselineStartDate, baselineEndDate, ...rest } = a;
+                return rest;
+            });
+            return { ...current, activities };
+        });
+        this.saveToHistory();
+    }
+
+    // Activity Codes Logic
+    addActivityCodeDefinition(name: string) {
+        const currentDefs = this.state().activityCodeDefinitions || [];
+        const newId = currentDefs.length > 0 ? Math.max(...currentDefs.map(d => d.id)) + 1 : 1;
+        const newDef: any = { id: newId, name, values: [] };
+
+        this.state.update(s => ({
+            ...s,
+            activityCodeDefinitions: [...(s.activityCodeDefinitions || []), newDef]
+        }));
+        this.saveToHistory();
+    }
+
+    deleteActivityCodeDefinition(id: number) {
+        this.state.update(s => ({
+            ...s,
+            activityCodeDefinitions: (s.activityCodeDefinitions || []).filter(d => d.id !== id),
+            // Cleanup assignments? Ideally yes, but keeping it simple for now
+        }));
+        this.saveToHistory();
+    }
+
+    addActivityCodeValue(defId: number, value: string, color?: string) {
+        this.state.update(s => {
+            const defs = s.activityCodeDefinitions || [];
+            const defIndex = defs.findIndex(d => d.id === defId);
+            if (defIndex === -1) return s;
+
+            const def = defs[defIndex];
+            const newValId = def.values.length > 0 ? Math.max(...def.values.map(v => v.id)) + 1 : 1;
+
+            const newVal: any = { id: newValId, codeId: defId, value, color };
+
+            const newDefs = [...defs];
+            newDefs[defIndex] = { ...def, values: [...def.values, newVal] };
+
+            return { ...s, activityCodeDefinitions: newDefs };
+        });
+        this.saveToHistory();
+    }
+
+    deleteActivityCodeValue(defId: number, valId: number) {
+        this.state.update(s => {
+            const defs = s.activityCodeDefinitions || [];
+            const defIndex = defs.findIndex(d => d.id === defId);
+            if (defIndex === -1) return s;
+
+            const def = defs[defIndex];
+            const newDefs = [...defs];
+            newDefs[defIndex] = { ...def, values: def.values.filter(v => v.id !== valId) };
+
+            return { ...s, activityCodeDefinitions: newDefs };
+        });
+        this.saveToHistory();
+    }
+
+    assignActivityCode(activityId: number, defId: number, valId: number | null) {
+        this.state.update(s => ({
+            ...s,
+            activities: s.activities.map(a => {
+                if (a.id !== activityId) return a;
+                const codes = { ...(a.assignedCodes || {}) };
+                if (valId === null) {
+                    delete codes[defId];
+                } else {
+                    codes[defId] = valId;
+                }
+                return { ...a, assignedCodes: codes };
+            })
+        }));
+        this.saveToHistory();
+        this.saveStateToStorage();
+    }
+
     // Activity Steps Logic
     addActivityStep(activityId: number, name: string, weight: number = 1) {
         this.state.update(current => {
@@ -1007,38 +1130,7 @@ export class PlanningService {
         this.saveToHistory();
     }
 
-    // Baseline Management
-    createBaseline() {
-        if (!confirm("Are you sure you want to capture the current schedule as the baseline? This will overwrite any existing baseline.")) return;
 
-        this.state.update(current => {
-            const activities = current.activities.map(a => {
-                const start = new Date(a.startDate);
-                const end = new Date(start);
-                end.setDate(end.getDate() + a.duration);
-                return {
-                    ...a,
-                    baselineStartDate: start,
-                    baselineEndDate: end
-                };
-            });
-            return { ...current, activities };
-        });
-        this.saveToHistory();
-    }
-
-    clearBaseline() {
-        if (!confirm("Are you sure you want to clear the baseline?")) return;
-
-        this.state.update(current => {
-            const activities = current.activities.map(a => {
-                const { baselineStartDate, baselineEndDate, ...rest } = a;
-                return rest;
-            });
-            return { ...current, activities };
-        });
-        this.saveToHistory();
-    }
 
     // Resource Leveling
     levelResources() {
@@ -1358,3 +1450,4 @@ export class PlanningService {
         };
     }
 }
+

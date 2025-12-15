@@ -19,7 +19,7 @@ export class ActivityDetailsComponent implements OnDestroy {
 
     // Details panel resize state
     detailsPanelHeight = signal(160); // Default height in pixels
-    activeTab = signal<'general' | 'resources' | 'relationships' | 'steps' | 'cost'>('general');
+    activeTab = signal<'general' | 'resources' | 'relationships' | 'steps' | 'cost' | 'codes'>('general');
 
     // Resources from service
     resources = this.planningService.resources;
@@ -93,7 +93,7 @@ export class ActivityDetailsComponent implements OnDestroy {
         }
     }
 
-    setActiveTab(tab: 'general' | 'resources' | 'relationships' | 'steps' | 'cost') {
+    setActiveTab(tab: 'general' | 'resources' | 'relationships' | 'steps' | 'cost' | 'codes') {
         this.activeTab.set(tab);
     }
 
@@ -257,11 +257,37 @@ export class ActivityDetailsComponent implements OnDestroy {
         }
     }
 
-    getEarnedValue(): number {
-        const activity = this.selectedActivity();
-        if (!activity) return 0;
-        const bac = activity.budgetAtCompletion || 0;
-        const pc = activity.percentComplete || 0;
-        return bac * (pc / 100);
+    // Codes from service
+    codeDefinitions = computed(() => this.planningService.state().activityCodeDefinitions || []);
+
+    onCodeChange(defId: number, event: Event) {
+        const valId = parseInt((event.target as HTMLSelectElement).value, 10);
+        const actId = this.selectedActivity()?.id;
+        if (actId) {
+            if (!isNaN(valId)) {
+                this.planningService.assignActivityCode(actId, defId, valId);
+            } else {
+                // Handle unassign (e.g. value is "null" or empty)
+                this.planningService.assignActivityCode(actId, defId, null);
+            }
+        }
+    }
+
+    getAssignedValue(defId: number): number | 'null' {
+        const act = this.selectedActivity();
+        if (!act || !act.assignedCodes) return 'null';
+        const val = act.assignedCodes[defId];
+        return val !== undefined ? val : 'null';
+    }
+
+    getCodeColor(defId: number): string {
+        const valId = this.getAssignedValue(defId);
+        if (valId === 'null') return 'transparent';
+
+        const def = this.codeDefinitions().find(d => d.id === defId);
+        if (!def) return 'transparent';
+
+        const val = def.values.find(v => v.id === valId);
+        return val ? (val.color || 'transparent') : 'transparent';
     }
 }

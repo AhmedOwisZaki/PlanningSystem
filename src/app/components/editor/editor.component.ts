@@ -17,7 +17,7 @@ export class EditorComponent {
     planningService = inject(PlanningService);
     xerExporter = inject(XerExporterService);
 
-    activeTab: 'project' | 'resources' | 'calendars' = 'resources';
+    activeTab: 'project' | 'resources' | 'calendars' | 'codes' = 'resources';
     resources = this.planningService.resources;
     resourceTypes = this.planningService.resourceTypes;
 
@@ -30,6 +30,15 @@ export class EditorComponent {
 
     // Calendars
     calendars = computed(() => this.planningService.state().calendars || []);
+
+    // Activity Codes
+    codeDefinitions = computed(() => this.planningService.state().activityCodeDefinitions || []);
+    selectedCodeDef = signal<any | null>(null);
+    newCodeDefName = signal('');
+    newCodeValue = signal('');
+    newCodeColor = signal('#339af0');
+
+
 
     // Calendar Management State
     editingCalendar = signal<Calendar | null>(null);
@@ -62,7 +71,7 @@ export class EditorComponent {
 
     @Output() requestOpenProfile = new EventEmitter<Resource>();
 
-    toggleTab(tab: 'project' | 'resources' | 'calendars') {
+    toggleTab(tab: 'project' | 'resources' | 'calendars' | 'codes') {
         this.activeTab = tab;
         this.selectedResource.set(null); // Clear selection when switching tabs if desired
         this.showProfile.set(false);
@@ -147,6 +156,12 @@ export class EditorComponent {
         this.showSCurves.set(false);
     }
 
+    setBaseline() {
+        if (confirm('Set current schedule as the project baseline? This will overwrite any existing baseline.')) {
+            this.planningService.assignBaseline();
+        }
+    }
+
     // Calendar Methods
     startAddCalendar() {
         const newCal: Calendar = {
@@ -227,6 +242,45 @@ export class EditorComponent {
         if (cal) {
             const hols = cal.holidays.filter((_, i) => i !== index);
             this.editingCalendar.set({ ...cal, holidays: hols });
+        }
+    }
+
+    // Activity Code Definition Methods
+    startAddCodeDef() {
+        const name = this.newCodeDefName();
+        if (name) {
+            this.planningService.addActivityCodeDefinition(name);
+            this.newCodeDefName.set('');
+        }
+    }
+
+    deleteCodeDef(id: number) {
+        if (confirm('Delete this code definition? Details will be lost.')) {
+            this.planningService.deleteActivityCodeDefinition(id);
+            this.selectedCodeDef.set(null);
+        }
+    }
+
+    selectCodeDef(def: any) {
+        this.selectedCodeDef.set(def);
+    }
+
+    addCodeValue() {
+        const def = this.selectedCodeDef();
+        const val = this.newCodeValue();
+        const color = this.newCodeColor();
+        if (def && val) {
+            this.planningService.addActivityCodeValue(def.id, val, color);
+            this.newCodeValue.set('');
+            // No need to manually update selectedCodeDef as it is a reference, but if list works by computed it might update.
+            // Ideally we re-fetch the latest def from signal.
+            // For now, let's just clear inputs.
+        }
+    }
+
+    deleteCodeValue(defId: number, valId: number) {
+        if (confirm('Delete this value?')) {
+            this.planningService.deleteActivityCodeValue(defId, valId);
         }
     }
 }

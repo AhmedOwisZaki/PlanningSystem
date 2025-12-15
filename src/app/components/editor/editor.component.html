@@ -7,6 +7,7 @@
         <div class="tab" [class.active]="activeTab === 'project'" (click)="toggleTab('project')">Project</div>
         <div class="tab" [class.active]="activeTab === 'resources'" (click)="toggleTab('resources')">Resources</div>
         <div class="tab" [class.active]="activeTab === 'calendars'" (click)="toggleTab('calendars')">Calendars</div>
+        <div class="tab" [class.active]="activeTab === 'codes'" (click)="toggleTab('codes')">Codes</div>
     </div>
 
     <!-- Tab Content -->
@@ -40,6 +41,14 @@
                 <button class="btn-export" (click)="exportToXER()">
                     📥 Export to Primavera P6 (.xer)
                 </button>
+            </div>
+
+            <div class="evm-section">
+                <h4>Baselines</h4>
+                <button class="btn-baseline" (click)="setBaseline()">
+                    📏 Set Project Baseline
+                </button>
+                <p class="hint-text">Snapshots current schedule as the target comparison.</p>
             </div>
 
             <div class="evm-section">
@@ -217,6 +226,55 @@
                 </div>
             </div>
 
+        </div>
+
+        <!-- CODES TAB -->
+        <div *ngIf="activeTab === 'codes'" class="tab-pane codes-pane">
+            <div class="feature-header">
+                <h3>Activity Codes</h3>
+            </div>
+
+            <!-- Add Code Definition -->
+            <div class="add-code-form">
+                <input type="text" [ngModel]="newCodeDefName()" (ngModelChange)="newCodeDefName.set($event)"
+                    placeholder="New Code Name (e.g. Phase)" class="form-control" (keyup.enter)="startAddCodeDef()">
+                <button class="btn-add-feature" (click)="startAddCodeDef()" [disabled]="!newCodeDefName()">+</button>
+            </div>
+
+            <!-- List of Codes -->
+            <div class="codes-list">
+                <div class="code-def-card" *ngFor="let def of codeDefinitions()"
+                    [class.selected]="selectedCodeDef()?.id === def.id" (click)="selectCodeDef(def)">
+                    <div class="def-header">
+                        <h4>{{ def.name }}</h4>
+                        <button class="btn-icon delete"
+                            (click)="deleteCodeDef(def.id); $event.stopPropagation()">🗑️</button>
+                    </div>
+                    <div class="def-values-preview">
+                        {{ def.values.length }} values
+                    </div>
+                </div>
+            </div>
+
+            <!-- Values Editor -->
+            <div class="values-editor" *ngIf="selectedCodeDef()">
+                <h4>Values for: {{ selectedCodeDef().name }}</h4>
+                <div class="add-value-row">
+                    <input type="text" [ngModel]="newCodeValue()" (ngModelChange)="newCodeValue.set($event)"
+                        placeholder="Value Name" class="form-control">
+                    <input type="color" [ngModel]="newCodeColor()" (ngModelChange)="newCodeColor.set($event)"
+                        class="color-picker">
+                    <button class="btn-action-small" (click)="addCodeValue()">Add</button>
+                </div>
+                <div class="values-list">
+                    <div class="value-item" *ngFor="let val of selectedCodeDef().values">
+                        <span class="color-dot" [style.background-color]="val.color"></span>
+                        <span class="val-name">{{ val.value }}</span>
+                        <button class="btn-icon delete-small"
+                            (click)="deleteCodeValue(selectedCodeDef().id, val.id)">×</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
     </div>

@@ -12,6 +12,7 @@
             (click)="setActiveTab('relationships')">Relationships</button>
         <button [class.active]="activeTab() === 'steps'" (click)="setActiveTab('steps')">Steps</button>
         <button [class.active]="activeTab() === 'cost'" (click)="setActiveTab('cost')">Cost</button>
+        <button [class.active]="activeTab() === 'codes'" (click)="setActiveTab('codes')">Codes</button>
     </div>
 
     <div class="details-content" *ngIf="activeTab() === 'general'">
@@ -246,6 +247,28 @@
                 <input type="number" [(ngModel)]="newStepWeight" placeholder="Weight" class="form-control" min="1"
                     style="flex: 1;">
                 <button class="btn-assign" (click)="addStep()" [disabled]="!newStepName.trim()">Add</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Codes Tab Content -->
+    <div class="details-content codes-content" *ngIf="activeTab() === 'codes'">
+        <div class="codes-grid">
+            <div class="code-item" *ngFor="let def of codeDefinitions()">
+                <label>{{ def.name }}</label>
+                <select [value]="getAssignedValue(def.id)" (change)="onCodeChange(def.id, $event)">
+                    <option value="null">-- None --</option>
+                    <option *ngFor="let val of def.values" [value]="val.id">
+                        {{ val.value }}
+                    </option>
+                </select>
+                <!-- Show color preview if selected -->
+                <span class="color-preview" *ngIf="getAssignedValue(def.id) !== 'null'"
+                    [style.background-color]="getCodeColor(def.id)">
+                </span>
+            </div>
+            <div *ngIf="codeDefinitions().length === 0" class="no-data">
+                No activity codes defined. Go to Project Editor > Codes to define them.
             </div>
         </div>
     </div>
