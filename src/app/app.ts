@@ -20,7 +20,12 @@ export class App implements OnInit {
     this.router.events.pipe(
       filter((event: Event): event is NavigationEnd => event instanceof NavigationEnd)
     ).subscribe((event: NavigationEnd) => {
-      this.isWelcomePage.set(event.url === '/' || event.urlAfterRedirects === '/');
+      this.isWelcomePage.set(
+        event.url === '/' ||
+        event.url === '/welcome' ||
+        event.urlAfterRedirects === '/' ||
+        event.urlAfterRedirects === '/welcome'
+      );
     });
   }
 }

@@ -1,18 +1,11 @@
 .projects-page {
-    padding: 2rem;
-    max-width: 1200px;
-    margin: 0 auto;
     min-height: 100vh;
-    background-color: #f5f7fa;
-    background-image:
-        linear-gradient(30deg, #f5f7fa 12%, transparent 12.5%, transparent 87%, #f5f7fa 87.5%, #f5f7fa),
-        linear-gradient(150deg, #f5f7fa 12%, transparent 12.5%, transparent 87%, #f5f7fa 87.5%, #f5f7fa),
-        linear-gradient(30deg, #f5f7fa 12%, transparent 12.5%, transparent 87%, #f5f7fa 87.5%, #f5f7fa),
-        linear-gradient(150deg, #f5f7fa 12%, transparent 12.5%, transparent 87%, #f5f7fa 87.5%, #f5f7fa),
-        linear-gradient(60deg, #e8ecf177 25%, transparent 25.5%, transparent 75%, #e8ecf177 75%, #e8ecf177),
-        linear-gradient(60deg, #e8ecf177 25%, transparent 25.5%, transparent 75%, #e8ecf177 75%, #e8ecf177);
-    background-size: 80px 140px;
-    background-position: 0 0, 0 0, 40px 70px, 40px 70px, 0 0, 40px 70px;
+    width: 100%;
+    background-color: #1a1a2e;
+    background-image: url('/assets/projects-background.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
     position: relative;
 
     &::before {
@@ -22,12 +15,18 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background:
-            radial-gradient(circle at 15% 20%, rgba(102, 126, 234, 0.05) 0%, transparent 40%),
-            radial-gradient(circle at 85% 80%, rgba(118, 75, 162, 0.05) 0%, transparent 40%),
-            linear-gradient(135deg, rgba(102, 126, 234, 0.02) 0%, rgba(118, 75, 162, 0.02) 100%);
+        background: rgba(26, 26, 46, 0.7);
         pointer-events: none;
     }
+}
+
+.content-container {
+    padding: 2rem;
+    width: 100%;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+    box-sizing: border-box;
 }
 
 
@@ -319,5 +318,104 @@
 
     &:hover {
         background: #e2e8f0;
+    }
+}
+
+.eps-container {
+    padding-bottom: 3rem;
+    width: 100%;
+
+    // Default EPS styles
+    .eps-node {
+        margin-bottom: 2rem;
+    }
+
+    .eps-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        cursor: pointer; // Add cursor pointer
+        transition: background-color 0.2s;
+
+        &:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        &.selected {
+            background-color: rgba(102, 126, 234, 0.2); // Highlight color
+            border-left: 4px solid #667eea;
+            padding-left: 0.5rem; // Adjust padding to account for border
+        }
+
+        .eps-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+
+            h4 {
+                margin: 0;
+                color: white;
+                font-size: 1.5rem;
+                font-weight: 500;
+            }
+
+            .folder-icon {
+                font-size: 1.5rem;
+            }
+
+            .project-count {
+                color: rgba(255, 255, 255, 0.5);
+                font-size: 0.9rem;
+            }
+        }
+    }
+
+    .eps-actions {
+        display: flex;
+        gap: 0.5rem;
+
+        .btn-icon {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+
+            &:hover {
+                background: rgba(255, 255, 255, 0.2);
+            }
+
+            &.small {
+                font-size: 1rem;
+                padding: 2px 6px;
+            }
+
+            &.delete:hover {
+                background: rgba(255, 50, 50, 0.2);
+                color: #ff6b6b;
+            }
+        }
+    }
+
+    // Indentation for children
+    .eps-children {
+        padding-left: 2rem;
+        border-left: 1px solid rgba(255, 255, 255, 0.1);
+        margin-left: 0.5rem;
+    }
+
+    .orphaned-projects {
+        margin-top: 3rem;
+        padding-top: 2rem;
+        border-top: 2px dashed rgba(255, 255, 255, 0.1);
+
+        .eps-header h4 {
+            color: #a0aec0; // Grayed out for orphaned
+        }
     }
 }

@@ -1,44 +1,149 @@
 <div class="projects-page">
-    <div class="page-header">
-        <h1>Projects</h1>
-        <div class="actions">
-            <button class="btn-primary" (click)="openCreateModal()">+ New Project</button>
-            <button class="btn-import" (click)="triggerFileInput()">
-                📁 Import from XER
-            </button>
+    <div class="content-container">
+        <div class="page-header">
+            <h1>Projects</h1>
+            <div class="actions">
+                <button class="btn-secondary" (click)="openAddEPSModal(null)">+ Add Root EPS</button>
+                <button class="btn-primary" (click)="openCreateModal()" [disabled]="!selectedEPSId">+ New
+                    Project</button>
+                <button class="btn-import" (click)="triggerFileInput()">
+                    📁 Import from XER
+                </button>
+            </div>
+            <input type="file" id="xerFileInput" accept=".xer" (change)="onFileSelected($event)" style="display: none;">
         </div>
-        <input type="file" id="xerFileInput" accept=".xer" (change)="onFileSelected($event)" style="display: none;">
-    </div>
 
-    <div class="projects-grid">
-        @for (project of projects(); track project.id) {
-        <div class="project-card" (click)="openProject(project.id)">
-            <div class="project-icon">📊</div>
-            <div class="project-info">
-                <div class="card-header">
-                    <h3>{{ project.name }}</h3>
-                    <div class="card-actions" (click)="$event.stopPropagation()">
-                        <button class="btn-icon" (click)="openEditModal(project, $event)" title="Edit">✎</button>
-                        <button class="btn-icon delete" (click)="deleteProject(project.id, $event)"
-                            title="Delete">🗑️</button>
+        <!-- EPS Tree View -->
+        <div class="eps-container">
+            <ng-template #epsNodeTemplate let-nodes>
+                @for (node of nodes; track node.id) {
+                <div class="eps-node">
+                    <div class="eps-header" [class.selected]="selectedEPSId === node.id" (click)="selectEPS(node.id)">
+                        <div class="eps-title">
+                            <button class="btn-icon small toggle-btn" (click)="toggleCollapse(node.id, $event)">
+                                {{ isCollapsed(node.id) ? '▶' : '▼' }}
+                            </button>
+                            <span class="folder-icon">📂</span>
+                            <h4>{{ node.name }}</h4>
+                            <span class="project-count">({{ getProjectsForEPS(node.id).length }} projects)</span>
+                        </div>
+                        <div class="eps-actions">
+                            <button class="btn-icon small" (click)="openAddEPSModal(node.id); $event.stopPropagation()"
+                                title="Add Child EPS">+</button>
+                            <button class="btn-icon small delete" (click)="deleteEPS(node.id, $event)"
+                                title="Delete EPS">🗑️</button>
+                        </div>
+                    </div>
+
+                    <!-- Projects in this EPS Node -->
+                    <div class="projects-grid" *ngIf="!isCollapsed(node.id) && getProjectsForEPS(node.id).length > 0">
+                        @for (project of getProjectsForEPS(node.id); track project.id) {
+                        <div class="project-card" (click)="openProject(project.id)">
+                            <div class="project-icon">📊</div>
+                            <div class="project-info">
+                                <div class="card-header">
+                                    <h3>{{ project.name }}</h3>
+                                    <div class="card-actions" (click)="$event.stopPropagation()">
+                                        <button class="btn-icon" (click)="openEditModal(project, $event)"
+                                            title="Edit">✎</button>
+                                        <button class="btn-icon delete" (click)="deleteProject(project.id, $event)"
+                                            title="Delete">🗑️</button>
+                                    </div>
+                                </div>
+                                <p class="project-description">{{ project.description }}</p>
+                                <div class="project-stats">
+                                    <span class="stat">
+                                        <strong>{{ project.activityCount }}</strong> Activities
+                                    </span>
+                                    <span class="stat">
+                                        <strong>{{ project.startDate | date:'MMM d, y' }}</strong> -
+                                        <strong>{{ project.endDate | date:'MMM d, y' }}</strong>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        }
+                    </div>
+
+                    <!-- Child Nodes (Recursive) -->
+                    <div class="eps-children"
+                        *ngIf="!isCollapsed(node.id) && node.children && node.children.length > 0">
+                        <ng-container
+                            *ngTemplateOutlet="epsNodeTemplate; context:{$implicit: node.children}"></ng-container>
                     </div>
                 </div>
-                <p class="project-description">{{ project.description }}</p>
-                <div class="project-stats">
-                    <span class="stat">
-                        <strong>{{ project.activityCount }}</strong> Activities
-                    </span>
-                    <span class="stat">
-                        <strong>{{ project.startDate | date:'MMM d, y' }}</strong> -
-                        <strong>{{ project.endDate | date:'MMM d, y' }}</strong>
-                    </span>
+                }
+            </ng-template>
+
+            <!-- Start Tree -->
+            <ng-container *ngTemplateOutlet="epsNodeTemplate; context:{$implicit: epsNodes()}"></ng-container>
+
+            <!-- Orphaned Projects (No EPS ID) -->
+            <div class="orphaned-projects"
+                *ngIf="getProjectsForEPS('').length > 0 || getProjectsForEPS(undefined!).length > 0">
+                <div class="eps-header">
+                    <h4>Unassigned Projects</h4>
+                </div>
+                <div class="projects-grid">
+                    @for (project of getProjectsForEPS(''); track project.id) {
+                    <div class="project-card" (click)="openProject(project.id)">
+                        <div class="project-icon">📊</div>
+                        <div class="project-info">
+                            <div class="card-header">
+                                <h3>{{ project.name }}</h3>
+                                <div class="card-actions" (click)="$event.stopPropagation()">
+                                    <button class="btn-icon" (click)="openEditModal(project, $event)"
+                                        title="Edit">✎</button>
+                                    <button class="btn-icon delete" (click)="deleteProject(project.id, $event)"
+                                        title="Delete">🗑️</button>
+                                </div>
+                            </div>
+                            <p class="project-description">{{ project.description }}</p>
+                            <div class="project-stats">
+                                <span class="stat">
+                                    <strong>{{ project.activityCount }}</strong> Activities
+                                </span>
+                                <span class="stat">
+                                    <strong>{{ project.startDate | date:'MMM d, y' }}</strong> -
+                                    <strong>{{ project.endDate | date:'MMM d, y' }}</strong>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    }
+                    <!-- Catch undefined too just in case -->
+                    @for (project of getProjectsForEPS(undefined!); track project.id) {
+                    <div class="project-card" (click)="openProject(project.id)">
+                        <div class="project-icon">📊</div>
+                        <div class="project-info">
+                            <div class="card-header">
+                                <h3>{{ project.name }}</h3>
+                                <div class="card-actions" (click)="$event.stopPropagation()">
+                                    <button class="btn-icon" (click)="openEditModal(project, $event)"
+                                        title="Edit">✎</button>
+                                    <button class="btn-icon delete" (click)="deleteProject(project.id, $event)"
+                                        title="Delete">🗑️</button>
+                                </div>
+                            </div>
+                            <p class="project-description">{{ project.description }}</p>
+                            <div class="project-stats">
+                                <span class="stat">
+                                    <strong>{{ project.activityCount }}</strong> Activities
+                                </span>
+                                <span class="stat">
+                                    <strong>{{ project.startDate | date:'MMM d, y' }}</strong> -
+                                    <strong>{{ project.endDate | date:'MMM d, y' }}</strong>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    }
                 </div>
             </div>
         </div>
-        }
     </div>
 
-    <!-- Create Modal -->
+    <!-- Create Project Modal -->
     <div class="modal-overlay" *ngIf="showCreateModal">
         <div class="modal-dialog">
             <div class="modal-header">
@@ -54,6 +159,7 @@
                     <label>Description</label>
                     <textarea [(ngModel)]="newProjectData.description" class="form-control" rows="3"></textarea>
                 </div>
+
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" (click)="closeCreateModal()">Cancel</button>
@@ -63,7 +169,35 @@
         </div>
     </div>
 
-    <!-- Edit Modal -->
+    <!-- Create EPS Modal -->
+    <div class="modal-overlay" *ngIf="showEPSModal">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3>{{ selectedParentEPSId ? 'Add Child EPS' : 'Add Root EPS' }}</h3>
+                <button class="close-btn" (click)="closeEPSModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>EPS Name</label>
+                    <input type="text" [(ngModel)]="newEPSName" class="form-control" autofocus
+                        placeholder="e.g. Engineering, Construction">
+                </div>
+                <div class="form-group">
+                    <label>Parent EPS</label>
+                    <select [(ngModel)]="selectedParentEPSId" class="form-control">
+                        <option [ngValue]="null">No Parent (Root)</option>
+                        <option *ngFor="let node of flattenedEPS()" [value]="node.id">{{ node.displayName }}</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" (click)="closeEPSModal()">Cancel</button>
+                <button class="btn-primary" (click)="createEPS()" [disabled]="!newEPSName.trim()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Project Modal -->
     <div class="modal-overlay" *ngIf="showEditModal">
         <div class="modal-dialog">
             <div class="modal-header">

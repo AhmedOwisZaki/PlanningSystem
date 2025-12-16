@@ -113,3 +113,11 @@ export interface ActivityCodeValue {
     description?: string;
     color?: string; // Optional for visualization
 }
+
+export interface EPSNode {
+    id: string; // Unique ID (e.g., "EPS-1")
+    name: string;
+    parentId: string | null; // Null for root nodes
+    children?: EPSNode[]; // For tree traversal (optional, can be built on the fly)
+    projectIds?: number[]; // IDs of projects belonging to this node
+}

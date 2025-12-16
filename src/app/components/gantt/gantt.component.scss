@@ -76,8 +76,8 @@
   overflow-x: hidden;
   /* Header doesn't scroll independently */
   overflow-y: hidden;
-  min-width: 800px;
-  /* Ensure header width matches row min-width */
+  width: 100%;
+  /* Fill container width */
 
   .grid-col {
     padding: 0 5px;
@@ -133,8 +133,8 @@
   height: 30px;
   /* Standard P6 row height */
   overflow: hidden;
-  min-width: 800px;
-  /* Force scrollbar by ensuring rows are wider than typical container */
+  width: 100%;
+  /* Fill container width */
 
   /* Alternating row colors for regular tasks */
   &:nth-child(even):not(.wbs-row) {
