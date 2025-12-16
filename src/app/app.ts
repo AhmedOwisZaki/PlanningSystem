@@ -12,7 +12,7 @@ import { CommonModule } from '@angular/common';
 })
 export class App implements OnInit {
   protected readonly title = signal('PlanningSystem');
-  protected isWelcomePage = signal(false);
+  protected hideToolbar = signal(false);
 
   constructor(private router: Router) { }
 
@@ -20,11 +20,11 @@ export class App implements OnInit {
     this.router.events.pipe(
       filter((event: Event): event is NavigationEnd => event instanceof NavigationEnd)
     ).subscribe((event: NavigationEnd) => {
-      this.isWelcomePage.set(
-        event.url === '/' ||
-        event.url === '/welcome' ||
-        event.urlAfterRedirects === '/' ||
-        event.urlAfterRedirects === '/welcome'
+      const url = event.urlAfterRedirects || event.url;
+      this.hideToolbar.set(
+        url === '/' ||
+        url === '/welcome' ||
+        url.startsWith('/projects')
       );
     });
   }

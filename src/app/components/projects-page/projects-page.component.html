@@ -3,10 +3,10 @@
         <div class="page-header">
             <h1>Projects</h1>
             <div class="actions">
-                <button class="btn-secondary" (click)="openAddEPSModal(null)">+ Add Root EPS</button>
+                <button class="btn-primary" (click)="openAddEPSModal(null)">+ Add Root EPS</button>
                 <button class="btn-primary" (click)="openCreateModal()" [disabled]="!selectedEPSId">+ New
                     Project</button>
-                <button class="btn-import" (click)="triggerFileInput()">
+                <button class="btn-primary" (click)="triggerFileInput()">
                     📁 Import from XER
                 </button>
             </div>
@@ -18,7 +18,9 @@
             <ng-template #epsNodeTemplate let-nodes>
                 @for (node of nodes; track node.id) {
                 <div class="eps-node">
-                    <div class="eps-header" [class.selected]="selectedEPSId === node.id" (click)="selectEPS(node.id)">
+                    <div class="eps-header" [class.selected]="selectedEPSId === node.id" (click)="selectEPS(node.id)"
+                        (dragover)="onDragOver($event)" (drop)="onDrop($event, node.id)"
+                        (dragenter)="onDragEnter($event)" (dragleave)="onDragLeave($event)">
                         <div class="eps-title">
                             <button class="btn-icon small toggle-btn" (click)="toggleCollapse(node.id, $event)">
                                 {{ isCollapsed(node.id) ? '▶' : '▼' }}
@@ -38,27 +40,25 @@
                     <!-- Projects in this EPS Node -->
                     <div class="projects-grid" *ngIf="!isCollapsed(node.id) && getProjectsForEPS(node.id).length > 0">
                         @for (project of getProjectsForEPS(node.id); track project.id) {
-                        <div class="project-card" (click)="openProject(project.id)">
+                        <div class="project-card" (click)="openProject(project.id)" draggable="true"
+                            (dragstart)="onDragStart($event, project)">
                             <div class="project-icon">📊</div>
                             <div class="project-info">
                                 <div class="card-header">
                                     <h3>{{ project.name }}</h3>
+
+                                </div>
+                                <div class="project-stats">
+                                    <span class="stat">
+                                        <strong>{{ project.activityCount }}</strong> Activities
+                                    </span>
                                     <div class="card-actions" (click)="$event.stopPropagation()">
                                         <button class="btn-icon" (click)="openEditModal(project, $event)"
                                             title="Edit">✎</button>
                                         <button class="btn-icon delete" (click)="deleteProject(project.id, $event)"
                                             title="Delete">🗑️</button>
                                     </div>
-                                </div>
-                                <p class="project-description">{{ project.description }}</p>
-                                <div class="project-stats">
-                                    <span class="stat">
-                                        <strong>{{ project.activityCount }}</strong> Activities
-                                    </span>
-                                    <span class="stat">
-                                        <strong>{{ project.startDate | date:'MMM d, y' }}</strong> -
-                                        <strong>{{ project.endDate | date:'MMM d, y' }}</strong>
-                                    </span>
+
                                 </div>
                             </div>
                         </div>
@@ -79,61 +79,35 @@
             <ng-container *ngTemplateOutlet="epsNodeTemplate; context:{$implicit: epsNodes()}"></ng-container>
 
             <!-- Orphaned Projects (No EPS ID) -->
-            <div class="orphaned-projects"
-                *ngIf="getProjectsForEPS('').length > 0 || getProjectsForEPS(undefined!).length > 0">
-                <div class="eps-header">
-                    <h4>Unassigned Projects</h4>
+            <!-- Orphaned Projects (No EPS ID) -->
+            <div class="orphaned-projects" *ngIf="getUnassignedProjects().length > 0">
+                <div class="eps-header" (dragover)="onDragOver($event)" (drop)="onDrop($event, '')"
+                    (dragenter)="onDragEnter($event)" (dragleave)="onDragLeave($event)">
+                    <div class="eps-title">
+                        <span class="folder-icon">📂</span>
+                        <h4>Unassigned Projects</h4>
+                        <span class="project-count">({{ getUnassignedProjects().length }} projects)</span>
+                    </div>
                 </div>
                 <div class="projects-grid">
-                    @for (project of getProjectsForEPS(''); track project.id) {
-                    <div class="project-card" (click)="openProject(project.id)">
+                    @for (project of getUnassignedProjects(); track project.id) {
+                    <div class="project-card" (click)="openProject(project.id)" draggable="true"
+                        (dragstart)="onDragStart($event, project)">
                         <div class="project-icon">📊</div>
                         <div class="project-info">
                             <div class="card-header">
                                 <h3>{{ project.name }}</h3>
+                            </div>
+                            <div class="project-stats">
+                                <span class="stat">
+                                    <strong>{{ project.activityCount }}</strong> Activities
+                                </span>
                                 <div class="card-actions" (click)="$event.stopPropagation()">
                                     <button class="btn-icon" (click)="openEditModal(project, $event)"
                                         title="Edit">✎</button>
                                     <button class="btn-icon delete" (click)="deleteProject(project.id, $event)"
                                         title="Delete">🗑️</button>
                                 </div>
-                            </div>
-                            <p class="project-description">{{ project.description }}</p>
-                            <div class="project-stats">
-                                <span class="stat">
-                                    <strong>{{ project.activityCount }}</strong> Activities
-                                </span>
-                                <span class="stat">
-                                    <strong>{{ project.startDate | date:'MMM d, y' }}</strong> -
-                                    <strong>{{ project.endDate | date:'MMM d, y' }}</strong>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    }
-                    <!-- Catch undefined too just in case -->
-                    @for (project of getProjectsForEPS(undefined!); track project.id) {
-                    <div class="project-card" (click)="openProject(project.id)">
-                        <div class="project-icon">📊</div>
-                        <div class="project-info">
-                            <div class="card-header">
-                                <h3>{{ project.name }}</h3>
-                                <div class="card-actions" (click)="$event.stopPropagation()">
-                                    <button class="btn-icon" (click)="openEditModal(project, $event)"
-                                        title="Edit">✎</button>
-                                    <button class="btn-icon delete" (click)="deleteProject(project.id, $event)"
-                                        title="Delete">🗑️</button>
-                                </div>
-                            </div>
-                            <p class="project-description">{{ project.description }}</p>
-                            <div class="project-stats">
-                                <span class="stat">
-                                    <strong>{{ project.activityCount }}</strong> Activities
-                                </span>
-                                <span class="stat">
-                                    <strong>{{ project.startDate | date:'MMM d, y' }}</strong> -
-                                    <strong>{{ project.endDate | date:'MMM d, y' }}</strong>
-                                </span>
                             </div>
                         </div>
                     </div>

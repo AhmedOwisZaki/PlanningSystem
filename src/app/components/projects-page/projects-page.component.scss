@@ -100,25 +100,27 @@
 
 .projects-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+    gap: 1rem;
     position: relative;
     z-index: 1;
 }
 
 .project-card {
-    background: white;
+    background: rgba(128, 128, 128, 0.5);
     border-radius: 12px;
-    padding: 1.5rem;
+    padding: 0.75rem;
     cursor: pointer;
     transition: all 0.3s ease;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     display: flex;
-    gap: 1rem;
+    gap: 0.5rem;
+    color: white;
 
     &:hover {
         transform: translateY(-4px);
         box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        background: rgba(207, 52, 52, 0.6);
     }
 }
 
@@ -126,18 +128,18 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
 
     h3 {
         margin: 0;
-        color: #333;
-        font-size: 1.25rem;
+        color: white;
+        font-size: 1rem;
     }
 }
 
 .card-actions {
     display: flex;
-    gap: 5px;
+    gap: 2px;
     opacity: 0.6;
     transition: opacity 0.2s;
 
@@ -149,23 +151,24 @@
         background: none;
         border: none;
         cursor: pointer;
-        font-size: 1.1rem;
-        padding: 4px;
+        font-size: 0.9rem;
+        padding: 2px;
         border-radius: 4px;
+        color: white;
 
         &:hover {
-            background-color: #f0f0f0;
+            background-color: rgba(241, 234, 234, 0.2);
         }
 
         &.delete:hover {
-            background-color: #fee;
-            color: red;
+            background-color: rgba(255, 100, 100, 0.3);
+            color: #ffcccc;
         }
     }
 }
 
 .project-icon {
-    font-size: 3rem;
+    font-size: 1.5rem;
     flex-shrink: 0;
 }
 
@@ -173,24 +176,27 @@
     flex: 1;
 
     .project-description {
-        margin: 0 0 1rem 0;
-        color: #666;
-        font-size: 0.9rem;
-        line-height: 1.4;
+        margin: 0 0 0.5rem 0;
+        color: #e0e0e0;
+        font-size: 0.75rem;
+        line-height: 1.3;
     }
 }
 
 .project-stats {
     display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.25rem;
+    margin-top: auto;
 
     .stat {
-        color: #888;
-        font-size: 0.85rem;
+        color: #ccc;
+        font-size: 0.7rem;
 
         strong {
-            color: #667eea;
+            color: #a3bffa;
         }
     }
 }
@@ -414,8 +420,11 @@
         padding-top: 2rem;
         border-top: 2px dashed rgba(255, 255, 255, 0.1);
 
-        .eps-header h4 {
-            color: #a0aec0; // Grayed out for orphaned
-        }
+    }
+
+    .eps-header.drag-over {
+        background-color: rgba(102, 126, 234, 0.4) !important;
+        border: 2px dashed #667eea;
+        border-radius: 8px;
     }
 }

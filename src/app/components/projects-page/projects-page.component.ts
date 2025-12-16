@@ -112,24 +112,61 @@ export class ProjectsPageComponent {
     }
 
     private loadProjects() {
+        // 1. Load from LocalStorage
         const saved = localStorage.getItem('projects');
+        let loadedProjects: any[] = [];
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
-                const projects = parsed.map((p: any) => ({
+                loadedProjects = parsed.map((p: any) => ({
                     ...p,
                     startDate: new Date(p.startDate),
                     endDate: new Date(p.endDate)
                 }));
-                this.projects.set(projects);
             } catch (e) {
                 console.error('Failed to load projects', e);
             }
         }
+
+        // 2. Sync active project from Service (Reference Project)
+        const activeState = this.planningService.state();
+        const activeId = activeState.projectId;
+
+        // Check if active project is already in text list
+        const exists = loadedProjects.some(p => p.id === activeId);
+
+        if (!exists) {
+            // Add it
+            const newMeta = {
+                id: activeId,
+                name: activeState.projectName,
+                description: activeState.projectDescription || 'Default Reference Project',
+                activityCount: activeState.activities ? activeState.activities.length : 0,
+                startDate: activeState.projectStartDate,
+                endDate: activeState.projectEndDate,
+                epsId: '' // Default to unassigned or set a default EPS
+            };
+
+            loadedProjects.push(newMeta);
+
+            // Persist list
+            localStorage.setItem('projects', JSON.stringify(loadedProjects));
+
+            // active state is already in memory, but ensure it's saved as project_ID too 
+            localStorage.setItem(`project_${activeId}`, JSON.stringify(activeState));
+        }
+
+        this.projects.set(loadedProjects);
     }
 
     getProjectsForEPS(epsId: string) {
         return this.projects().filter(p => p.epsId === epsId);
+    }
+
+    getUnassignedProjects() {
+        // Create a set of valid IDs from the flattened list (more efficient than re-traversing)
+        const validEpsIds = new Set(this.flattenedEPS().map(node => node.id));
+        return this.projects().filter(p => !p.epsId || !validEpsIds.has(p.epsId));
     }
 
     private saveProjectsList() {
@@ -350,5 +387,54 @@ export class ProjectsPageComponent {
     triggerFileInput() {
         const fileInput = document.getElementById('xerFileInput') as HTMLInputElement;
         fileInput?.click();
+    }
+
+    // --- DRAG AND DROP ---
+    onDragStart(event: DragEvent, project: any) {
+        if (event.dataTransfer) {
+            event.dataTransfer.setData('text/plain', project.id.toString());
+            event.dataTransfer.effectAllowed = 'move';
+        }
+    }
+
+    onDragOver(event: DragEvent) {
+        event.preventDefault(); // Allow dropping
+        event.dataTransfer!.dropEffect = 'move';
+    }
+
+    onDragEnter(event: DragEvent) {
+        event.preventDefault();
+        const target = event.currentTarget as HTMLElement;
+        target.classList.add('drag-over');
+    }
+
+    onDragLeave(event: DragEvent) {
+        const target = event.currentTarget as HTMLElement;
+        target.classList.remove('drag-over');
+    }
+
+    onDrop(event: DragEvent, targetEpsId: string) {
+        event.preventDefault();
+        const target = event.currentTarget as HTMLElement;
+        target.classList.remove('drag-over');
+
+        const projectId = Number(event.dataTransfer?.getData('text/plain'));
+        if (projectId) {
+            this.projects.update(list => list.map(p =>
+                p.id === projectId ? { ...p, epsId: targetEpsId } : p
+            ));
+            this.saveProjectsList();
+
+            // Also update persistent state if needed (epsId is mainly metadata)
+            if (isPlatformBrowser(this.platformId)) {
+                const key = `project_${projectId}`;
+                const saved = localStorage.getItem(key);
+                if (saved) {
+                    const state = JSON.parse(saved);
+                    // If we stored epsId in the project state blob, we'd update it here.
+                    // Assuming epsId is only in the metadata list for now.
+                }
+            }
+        }
     }
 }
