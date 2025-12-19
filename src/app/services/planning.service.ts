@@ -1,6 +1,8 @@
 import { Injectable, signal, computed, WritableSignal, PLATFORM_ID, inject, effect } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Activity, Dependency, ProjectState, ActivityStep, Calendar } from '../models/planning.models';
+import { ApiService } from './api.service';
+import { forkJoin, map } from 'rxjs';
 
 @Injectable({
     providedIn: 'root'
@@ -152,60 +154,41 @@ export class PlanningService {
 
     // Calendar Management
     addCalendar(calendar: Partial<Calendar>) {
-        const currentCalendars = this.state().calendars || [];
-        const newId = currentCalendars.length > 0 ? Math.max(...currentCalendars.map(c => c.id)) + 1 : 1;
-
-        const newCalendar: Calendar = {
-            id: newId,
-            name: calendar.name || 'New Calendar',
-            isDefault: false,
-            workDays: calendar.workDays || [false, true, true, true, true, true, false],
-            workHoursPerDay: calendar.workHoursPerDay || 8,
-            holidays: calendar.holidays || [],
-            description: calendar.description || ''
-        };
-
-        this.state.update(current => ({
-            ...current,
-            calendars: [...(current.calendars || []), newCalendar]
-        }));
-        this.saveToHistory();
+        // Map partial to full object for API if needed, or let API handle validation
+        this.apiService.createCalendar(calendar).subscribe({
+            next: (createdCal) => {
+                this.state.update(current => ({
+                    ...current,
+                    calendars: [...(current.calendars || []), createdCal]
+                }));
+            },
+            error: (err) => console.error('Failed to create calendar:', err)
+        });
     }
 
     updateCalendar(updatedCalendar: Calendar) {
-        this.state.update(current => ({
-            ...current,
-            calendars: (current.calendars || []).map(c => c.id === updatedCalendar.id ? updatedCalendar : c)
-        }));
-
-        // If set to default, unset others
-        if (updatedCalendar.isDefault) {
-            this.state.update(current => ({
-                ...current,
-                calendars: current.calendars!.map(c => c.id === updatedCalendar.id ? c : { ...c, isDefault: false }),
-                defaultCalendarId: updatedCalendar.id
-            }));
-        }
-        this.saveToHistory();
+        this.apiService.updateCalendar(updatedCalendar.id, updatedCalendar).subscribe({
+            next: () => {
+                this.state.update(current => ({
+                    ...current,
+                    calendars: (current.calendars || []).map(c => c.id === updatedCalendar.id ? updatedCalendar : c)
+                }));
+                // Logic for default calendar handling might be needed if changed
+            },
+            error: (err) => console.error('Failed to update calendar:', err)
+        });
     }
 
     deleteCalendar(calendarId: number) {
-        const state = this.state();
-        if (state.calendars?.length === 1) {
-            alert('Cannot delete the last calendar.');
-            return;
-        }
-
-        // Reassign activities using this calendar to default
-        const defaultCal = state.calendars?.find(c => c.isDefault) || state.calendars![0];
-
-        this.state.update(current => ({
-            ...current,
-            calendars: current.calendars!.filter(c => c.id !== calendarId),
-            activities: current.activities.map(a => a.calendarId === calendarId ? { ...a, calendarId: defaultCal.id } : a),
-            defaultCalendarId: current.defaultCalendarId === calendarId ? defaultCal.id : current.defaultCalendarId
-        }));
-        this.saveToHistory();
+        this.apiService.deleteCalendar(calendarId).subscribe({
+            next: () => {
+                this.state.update(current => ({
+                    ...current,
+                    calendars: current.calendars!.filter(c => c.id !== calendarId)
+                }));
+            },
+            error: (err) => console.error('Failed to delete calendar:', err)
+        });
     }
 
     // Calendar Helpers
@@ -306,31 +289,57 @@ export class PlanningService {
 
     // History for undo/redo
 
-    private history: ProjectState[] = [];
-    private historyIndex: number = -1;
-    private maxHistorySize: number = 50;
-
-    constructor() {
-        // Auto-save effect
-        effect(() => {
-            // Monitor state changes if needed for other side effects
-            const state = this.state();
-        });
+    constructor(private apiService: ApiService) {
+        // Auto-save effect removed as we now save explicitly via API
 
         if (isPlatformBrowser(this.platformId)) {
             // Load LAST opened project if available?
             // For now, ProjectsPage handles loading specific projects.
         }
-
-        this.saveToHistory();
     }
 
-    // Persistence
+    loadFullProject(projectId: number) {
+        return this.apiService.getFullProject(projectId).pipe(
+            map(data => {
+                const project = data.projects[0];
+                if (!project) throw new Error('Project not found');
+
+                const newState: ProjectState = {
+                    projectId: project.id,
+                    projectName: project.name,
+                    projectDescription: project.description,
+                    projectStartDate: new Date(project.startDate),
+                    projectEndDate: new Date(project.endDate),
+                    activities: data.activities.map((a: any) => ({
+                        ...a,
+                        startDate: new Date(a.startDate),
+                        earlyStart: a.earlyStart ? new Date(a.earlyStart) : undefined,
+                        earlyFinish: a.earlyFinish ? new Date(a.earlyFinish) : undefined,
+                        lateStart: a.lateStart ? new Date(a.lateStart) : undefined,
+                        lateFinish: a.lateFinish ? new Date(a.lateFinish) : undefined,
+                        baselineStartDate: a.baselineStartDate ? new Date(a.baselineStartDate) : undefined,
+                        baselineEndDate: a.baselineEndDate ? new Date(a.baselineEndDate) : undefined
+                    })),
+                    dependencies: data.dependencies,
+                    resources: data.resources,
+                    calendars: data.calendars.map((c: any) => ({
+                        ...c,
+                        holidays: (c.holidays || []).map((h: any) => new Date(h.date)),
+                        workDays: (c.workDays || []).sort((a: any, b: any) => a.dayOfWeek - b.dayOfWeek).map((wd: any) => wd.isWorkDay)
+                    })),
+                    activityCodeDefinitions: []
+                };
+
+                this.state.set(newState);
+                this.scheduleProject();
+                return true;
+            })
+        );
+    }
+
+    // Persistence - Removed local storage saving
     private saveStateToStorage() {
-        const state = this.state();
-        if (isPlatformBrowser(this.platformId) && state.projectId) {
-            localStorage.setItem(`project_${state.projectId}`, JSON.stringify(state));
-        }
+        // No-op
     }
 
     loadProjectState(newState: ProjectState) {
@@ -413,63 +422,49 @@ export class PlanningService {
     }
 
     private saveToHistory() {
-        // Remove any future states if we're not at the end
-        this.history = this.history.slice(0, this.historyIndex + 1);
-
-        // Add current state
-        this.history.push(JSON.parse(JSON.stringify(this.state())));
-
-        // Limit history size
-        if (this.history.length > this.maxHistorySize) {
-            this.history.shift();
-        } else {
-            this.historyIndex++;
-        }
-
-        // Also persist to localStorage whenever we save history (major state change)
-        this.saveStateToStorage();
+        // No-op for now due to API sync
     }
 
     canUndo(): boolean {
-        return this.historyIndex > 0;
+        return false;
     }
 
     canRedo(): boolean {
-        return this.historyIndex < this.history.length - 1;
+        return false;
     }
 
     undo() {
-        if (this.canUndo()) {
-            this.historyIndex--;
-            this.state.set(JSON.parse(JSON.stringify(this.history[this.historyIndex])));
-        }
+        console.warn('Undo not supported in API mode yet');
     }
 
     redo() {
-        if (this.canRedo()) {
-            this.historyIndex++;
-            this.state.set(JSON.parse(JSON.stringify(this.history[this.historyIndex])));
-        }
+        console.warn('Redo not supported in API mode yet');
     }
 
     addActivity(parentId: number | null = null) {
-        const currentActivities = this.state().activities;
-        const newId = currentActivities.length > 0 ? Math.max(...currentActivities.map(a => a.id)) + 1 : 1;
-        const newActivity: Activity = {
-            id: newId,
+        const newActivity = {
             name: 'New Activity',
-            startDate: new Date(),
+            startDate: new Date(), // API expects ISO string usually, but let's check Service
             duration: 5,
             percentComplete: 0,
-            parentId: parentId
+            parentId: parentId,
+            projectId: this.state().projectId
         };
 
-        this.state.update(current => ({
-            ...current,
-            activities: [...current.activities, newActivity]
-        }));
-        this.recalculateProjectBounds();
-        this.saveToHistory();
+        this.apiService.createActivity(newActivity).subscribe({
+            next: (createdActivity) => {
+                this.state.update(current => ({
+                    ...current,
+                    activities: [...current.activities, {
+                        ...createdActivity,
+                        startDate: new Date(createdActivity.startDate),
+                        // Handle other dates if returned
+                    }]
+                }));
+                this.recalculateProjectBounds();
+            },
+            error: (err) => console.error('Failed to create activity:', err)
+        });
     }
 
     deleteActivity(activityId: number) {
@@ -479,87 +474,107 @@ export class PlanningService {
             return;
         }
 
-        this.state.update(current => ({
-            ...current,
-            activities: current.activities.filter(a => a.id !== activityId),
-            dependencies: current.dependencies.filter(d => d.sourceId !== activityId && d.targetId !== activityId)
-        }));
-        this.recalculateProjectBounds();
-        this.saveToHistory();
+        this.apiService.deleteActivity(activityId).subscribe({
+            next: () => {
+                this.state.update(current => ({
+                    ...current,
+                    activities: current.activities.filter(a => a.id !== activityId),
+                    dependencies: current.dependencies.filter(d => d.sourceId !== activityId && d.targetId !== activityId)
+                }));
+                this.recalculateProjectBounds();
+            },
+            error: (err) => console.error('Failed to delete activity:', err)
+        });
     }
 
     updateActivity(updatedActivity: Activity) {
-        this.state.update(current => ({
-            ...current,
-            activities: current.activities.map(a => a.id === updatedActivity.id ? updatedActivity : a)
-        }));
-        this.recalculateProjectBounds();
-        this.saveToHistory();
+        // Optimistic update? Or wait? Let's wait for now to be safe.
+        this.apiService.updateActivity(updatedActivity.id, updatedActivity).subscribe({
+            next: (savedProjectActivity) => {
+                this.state.update(current => ({
+                    ...current,
+                    activities: current.activities.map(a => a.id === updatedActivity.id ? updatedActivity : a)
+                }));
+                this.recalculateProjectBounds();
+            },
+            error: (err) => console.error('Failed to update activity:', err)
+        });
     }
 
     addDependency(sourceId: number, targetId: number, type: 'FS' | 'FF' | 'SS' | 'SF' = 'FS') {
-        this.state.update(current => ({
-            ...current,
-            dependencies: [...current.dependencies, { id: Date.now(), sourceId, targetId, type }]
-        }));
-        this.saveToHistory();
+        const dep = { sourceId, targetId, type, projectId: this.state().projectId };
+        this.apiService.createDependency(dep).subscribe({
+            next: (createdDep) => {
+                this.state.update(current => ({
+                    ...current,
+                    dependencies: [...current.dependencies, createdDep]
+                }));
+                // No need to save history
+            },
+            error: (err) => console.error('Failed to create dependency:', err)
+        });
     }
 
     removeDependency(id: number) {
-        this.state.update(current => ({
-            ...current,
-            dependencies: current.dependencies.filter(d => d.id !== id)
-        }));
-        this.saveToHistory();
+        this.apiService.deleteDependency(id).subscribe({
+            next: () => {
+                this.state.update(current => ({
+                    ...current,
+                    dependencies: current.dependencies.filter(d => d.id !== id)
+                }));
+            },
+            error: (err) => console.error('Failed to delete dependency:', err)
+        });
     }
 
     updateDependency(id: number, updates: Partial<Dependency>) {
-        this.state.update(current => ({
-            ...current,
-            dependencies: current.dependencies.map(d => d.id === id ? { ...d, ...updates } : d)
-        }));
-        this.saveToHistory();
+        this.apiService.updateDependency(id, updates).subscribe({
+            next: () => {
+                this.state.update(current => ({
+                    ...current,
+                    dependencies: current.dependencies.map(d => d.id === id ? { ...d, ...updates } : d)
+                }));
+            },
+            error: (err) => console.error('Failed to update dependency:', err)
+        });
     }
 
     addResource(resource: any) {
-        const currentResources = this.state().resources || [];
-        const newId = currentResources.length > 0 ? Math.max(...currentResources.map(r => r.id)) + 1 : 101;
-
-        this.state.update(current => ({
-            ...current,
-            resources: [...(current.resources || []), { ...resource, id: newId }]
-        }));
-        this.saveToHistory();
+        // Resources are global usually, but let's assume we manage them here too
+        this.apiService.createResource(resource).subscribe({
+            next: (createdResource) => {
+                this.state.update(current => ({
+                    ...current,
+                    resources: [...(current.resources || []), createdResource]
+                }));
+            },
+            error: (err) => console.error('Failed to create resource:', err)
+        });
     }
 
     assignResourceToActivity(activityId: number, resourceId: number, amount: number) {
-        let updatedActivity: Activity | undefined;
+        const assignment = { resourceId, amount, activityId };
+        this.apiService.assignResourceToActivity(activityId, assignment).subscribe({
+            next: (createdAssignment) => {
+                this.state.update(current => {
+                    const activities = current.activities.map(a => {
+                        if (a.id !== activityId) return a;
+                        const currentItems = a.resourceItems || [];
+                        return { ...a, resourceItems: [...currentItems, createdAssignment] };
+                    });
+                    return { ...current, activities };
+                });
 
-        this.state.update(current => {
-            const activities = current.activities.map(a => {
-                if (a.id !== activityId) return a;
-
-                const currentItems = a.resourceItems || [];
-                const newItem = {
-                    id: Date.now(),
-                    activityId: activityId,
-                    resourceId: resourceId,
-                    amount: amount
-                };
-
-                updatedActivity = { ...a, resourceItems: [...currentItems, newItem] };
-                return updatedActivity;
-            });
-            return { ...current, activities };
+                // Update selectedActivity if needed
+                const currentSelected = this.selectedActivity();
+                if (currentSelected && currentSelected.id === activityId) {
+                    // Refresh selected activity from state
+                    const updated = this.state().activities.find(a => a.id === activityId) || null;
+                    this.selectedActivity.set(updated);
+                }
+            },
+            error: (err) => console.error('Failed to assign resource:', err)
         });
-
-        // Update selectedActivity if it matches the one we just modified
-        const currentSelected = this.selectedActivity();
-        if (currentSelected && currentSelected.id === activityId && updatedActivity) {
-            this.selectedActivity.set(updatedActivity);
-        }
-
-        this.saveToHistory();
     }
 
     // WBS Hierarchy Methods

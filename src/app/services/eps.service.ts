@@ -2,6 +2,7 @@ import { Injectable, Inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { EPSNode } from '../models/planning.models';
 import { BehaviorSubject } from 'rxjs';
+import { ApiService } from './api.service';
 
 @Injectable({
     providedIn: 'root'
@@ -11,25 +12,47 @@ export class EPSService {
     private epsNodesSubject = new BehaviorSubject<EPSNode[]>([]);
     epsNodes$ = this.epsNodesSubject.asObservable();
 
-    constructor(@Inject(PLATFORM_ID) private platformId: Object) {
+    constructor(
+        @Inject(PLATFORM_ID) private platformId: Object,
+        private apiService: ApiService
+    ) {
         if (isPlatformBrowser(this.platformId)) {
             this.loadEPS();
         }
     }
 
     private loadEPS() {
-        const saved = localStorage.getItem(this.STORAGE_KEY);
-        if (saved) {
-            try {
-                const nodes = JSON.parse(saved);
-                this.epsNodesSubject.next(nodes);
-            } catch (e) {
-                console.error('Failed to parse EPS structure', e);
+        // Load EPS from backend API
+        this.apiService.getEPS().subscribe({
+            next: (nodes) => {
+                const tree = this.listToTree(nodes);
+                this.epsNodesSubject.next(tree);
+            },
+            error: (error) => {
+                console.error('Failed to load EPS from API:', error);
+                // Fallback to default if API fails
                 this.initializeDefaultEPS();
             }
-        } else {
-            this.initializeDefaultEPS();
-        }
+        });
+    }
+
+    private listToTree(list: any[]): EPSNode[] {
+        const map: { [key: string]: any } = {};
+        const roots: any[] = [];
+
+        list.forEach(node => {
+            map[node.id] = { ...node, children: [] };
+        });
+
+        list.forEach(node => {
+            if (node.parentId && node.parentId !== 'EPS-ROOT' && map[node.parentId]) {
+                map[node.parentId].children.push(map[node.id]);
+            } else {
+                roots.push(map[node.id]);
+            }
+        });
+
+        return roots;
     }
 
     private initializeDefaultEPS() {
@@ -45,9 +68,6 @@ export class EPSService {
 
     private saveEPS(nodes: EPSNode[]) {
         this.epsNodesSubject.next(nodes);
-        if (isPlatformBrowser(this.platformId)) {
-            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(nodes));
-        }
     }
 
     getEPSNodes(): EPSNode[] {
@@ -70,16 +90,22 @@ export class EPSService {
     }
 
     addEPSNode(node: EPSNode) {
-        const currentNodes = this.getEPSNodes();
+        this.apiService.createEPS(node).subscribe({
+            next: (createdNode) => {
+                const currentNodes = this.getEPSNodes();
 
-        if (node.parentId) {
-            // Find parent and add to its children
-            const updatedNodes = this.addChildToNode(currentNodes, node.parentId, node);
-            this.saveEPS(updatedNodes);
-        } else {
-            // Add as root
-            this.saveEPS([...currentNodes, node]);
-        }
+                if (createdNode.parentId) {
+                    const updatedNodes = this.addChildToNode(currentNodes, createdNode.parentId, createdNode);
+                    this.epsNodesSubject.next(updatedNodes);
+                } else {
+                    this.epsNodesSubject.next([...currentNodes, createdNode]);
+                }
+            },
+            error: (error) => {
+                console.error('Failed to create EPS node:', error);
+                alert('Failed to create EPS node. Please try again.');
+            }
+        });
     }
 
     private addChildToNode(nodes: EPSNode[], parentId: string, newNode: EPSNode): EPSNode[] {
@@ -100,9 +126,17 @@ export class EPSService {
     }
 
     updateEPSNode(updatedNode: EPSNode) {
-        const currentNodes = this.getEPSNodes();
-        const newNodes = this.updateNodeInTree(currentNodes, updatedNode);
-        this.saveEPS(newNodes);
+        this.apiService.updateEPS(updatedNode.id, updatedNode).subscribe({
+            next: () => {
+                const currentNodes = this.getEPSNodes();
+                const newNodes = this.updateNodeInTree(currentNodes, updatedNode);
+                this.saveEPS(newNodes);
+            },
+            error: (error) => {
+                console.error('Failed to update EPS node:', error);
+                alert('Failed to update EPS node. Please try again.');
+            }
+        });
     }
 
     private updateNodeInTree(nodes: EPSNode[], updatedNode: EPSNode): EPSNode[] {
@@ -121,9 +155,17 @@ export class EPSService {
     }
 
     deleteEPSNode(nodeId: string) {
-        const currentNodes = this.getEPSNodes();
-        const newNodes = this.deleteNodeFromTree(currentNodes, nodeId);
-        this.saveEPS(newNodes);
+        this.apiService.deleteEPS(nodeId).subscribe({
+            next: () => {
+                const currentNodes = this.getEPSNodes();
+                const newNodes = this.deleteNodeFromTree(currentNodes, nodeId);
+                this.epsNodesSubject.next(newNodes);
+            },
+            error: (error) => {
+                console.error('Failed to delete EPS node:', error);
+                alert('Failed to delete EPS node. Please try again.');
+            }
+        });
     }
 
     private deleteNodeFromTree(nodes: EPSNode[], nodeId: string): EPSNode[] {

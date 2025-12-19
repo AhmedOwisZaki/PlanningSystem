@@ -2,6 +2,10 @@
     <div class="content-container">
         <div class="page-header">
             <h1>Projects</h1>
+            <div class="search-bar">
+                <input type="text" [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)"
+                    placeholder="Search projects..." class="form-control search-input">
+            </div>
             <div class="actions">
                 <button class="btn-primary" (click)="openAddEPSModal(null)">+ Add Root EPS</button>
                 <button class="btn-primary" (click)="openCreateModal()" [disabled]="!selectedEPSId">+ New
@@ -9,6 +13,7 @@
                 <button class="btn-primary" (click)="triggerFileInput()">
                     📁 Import from XER
                 </button>
+                <button class="btn-secondary" (click)="logout()">🚪 Logout</button>
             </div>
             <input type="file" id="xerFileInput" accept=".xer" (change)="onFileSelected($event)" style="display: none;">
         </div>
@@ -130,6 +135,10 @@
                     <input type="text" [(ngModel)]="newProjectData.name" class="form-control" autofocus>
                 </div>
                 <div class="form-group">
+                    <label>Start Date</label>
+                    <input type="date" [(ngModel)]="newProjectData.startDate" class="form-control">
+                </div>
+                <div class="form-group">
                     <label>Description</label>
                     <textarea [(ngModel)]="newProjectData.description" class="form-control" rows="3"></textarea>
                 </div>
@@ -182,6 +191,10 @@
                 <div class="form-group">
                     <label>Project Name</label>
                     <input type="text" [(ngModel)]="editingProject.name" class="form-control" autofocus>
+                </div>
+                <div class="form-group">
+                    <label>Start Date</label>
+                    <input type="date" [(ngModel)]="editingProject.startDate" class="form-control">
                 </div>
                 <div class="form-group">
                     <label>Description</label>

@@ -5,6 +5,8 @@ import { Router } from '@angular/router';
 import { PlanningService } from '../../services/planning.service';
 import { XerParserService } from '../../services/xer-parser.service';
 import { EPSService } from '../../services/eps.service';
+import { ApiService } from '../../services/api.service';
+import { AuthService } from '../../services/auth.service';
 import { EPSNode } from '../../models/planning.models';
 
 @Component({
@@ -37,6 +39,17 @@ export class ProjectsPageComponent {
     });
 
     projects = signal<any[]>([]); // Raw project list
+    searchTerm = signal('');
+
+    // Computed signal for filtered projects
+    filteredProjects = computed(() => {
+        const term = this.searchTerm().toLowerCase().trim();
+        if (!term) return this.projects();
+        return this.projects().filter(p =>
+            p.name.toLowerCase().includes(term) ||
+            (p.description && p.description.toLowerCase().includes(term))
+        );
+    });
 
     // View State
     selectedEPSIdForCreate: string = '';
@@ -75,11 +88,13 @@ export class ProjectsPageComponent {
 
     // --- CREATE PROJECT ---
     openCreateModal() {
-        if (!this.selectedEPSId) return; // Should be handled by button disable state too
+        if (!this.selectedEPSId) return;
 
+        const today = new Date().toISOString().split('T')[0];
         this.newProjectData = {
             name: 'New Project',
             description: '',
+            startDate: today,
             epsId: this.selectedEPSId
         };
         this.showCreateModal = true;
@@ -99,7 +114,9 @@ export class ProjectsPageComponent {
         private router: Router,
         private planningService: PlanningService,
         private xerParser: XerParserService,
-        private epsService: EPSService
+        private epsService: EPSService,
+        private apiService: ApiService,
+        private authService: AuthService
     ) {
         // Load data on init
         if (isPlatformBrowser(this.platformId)) {
@@ -112,68 +129,34 @@ export class ProjectsPageComponent {
     }
 
     private loadProjects() {
-        // 1. Load from LocalStorage
-        const saved = localStorage.getItem('projects');
-        let loadedProjects: any[] = [];
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                loadedProjects = parsed.map((p: any) => ({
+        // Load projects from backend API
+        this.apiService.getProjects().subscribe({
+            next: (projects) => {
+                const loadedProjects = projects.map((p: any) => ({
                     ...p,
                     startDate: new Date(p.startDate),
                     endDate: new Date(p.endDate)
                 }));
-            } catch (e) {
-                console.error('Failed to load projects', e);
+                this.projects.set(loadedProjects);
+            },
+            error: (error) => {
+                console.error('Failed to load projects from API:', error);
+                alert('Failed to load projects. Please check your connection to the backend.');
             }
-        }
-
-        // 2. Sync active project from Service (Reference Project)
-        const activeState = this.planningService.state();
-        const activeId = activeState.projectId;
-
-        // Check if active project is already in text list
-        const exists = loadedProjects.some(p => p.id === activeId);
-
-        if (!exists) {
-            // Add it
-            const newMeta = {
-                id: activeId,
-                name: activeState.projectName,
-                description: activeState.projectDescription || 'Default Reference Project',
-                activityCount: activeState.activities ? activeState.activities.length : 0,
-                startDate: activeState.projectStartDate,
-                endDate: activeState.projectEndDate,
-                epsId: '' // Default to unassigned or set a default EPS
-            };
-
-            loadedProjects.push(newMeta);
-
-            // Persist list
-            localStorage.setItem('projects', JSON.stringify(loadedProjects));
-
-            // active state is already in memory, but ensure it's saved as project_ID too 
-            localStorage.setItem(`project_${activeId}`, JSON.stringify(activeState));
-        }
-
-        this.projects.set(loadedProjects);
+        });
     }
 
     getProjectsForEPS(epsId: string) {
-        return this.projects().filter(p => p.epsId === epsId);
+        return this.filteredProjects().filter(p => p.epsId === epsId);
     }
 
     getUnassignedProjects() {
         // Create a set of valid IDs from the flattened list (more efficient than re-traversing)
         const validEpsIds = new Set(this.flattenedEPS().map(node => node.id));
-        return this.projects().filter(p => !p.epsId || !validEpsIds.has(p.epsId));
+        return this.filteredProjects().filter(p => !p.epsId || !validEpsIds.has(p.epsId));
     }
 
-    private saveProjectsList() {
-        if (isPlatformBrowser(this.platformId)) {
-            localStorage.setItem('projects', JSON.stringify(this.projects()));
-        }
-    }
+
 
     // --- EPS MANAGEMENT ---
     openAddEPSModal(parentId: string | null) {
@@ -219,60 +202,52 @@ export class ProjectsPageComponent {
     createProject() {
         if (!this.newProjectData.name.trim()) return;
 
-        const newId = Date.now();
-        const startDate = new Date();
-        const endDate = new Date();
+        const startDate = new Date(this.newProjectData.startDate || new Date());
+        const endDate = new Date(startDate);
         endDate.setDate(endDate.getDate() + 30);
 
-        // 1. Create Metadata
-        const newProjectMeta = {
-            id: newId,
+        const projectData = {
             name: this.newProjectData.name,
             description: this.newProjectData.description,
-            activityCount: 0,
-            startDate: startDate,
-            endDate: endDate,
-            epsId: this.newProjectData.epsId // Link to EPS
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            epsId: this.newProjectData.epsId
         };
 
-        // 2. Create Initial State
-        const initialState = {
-            projectId: newId,
-            projectName: this.newProjectData.name,
-            projectDescription: this.newProjectData.description,
-            projectStartDate: startDate,
-            projectEndDate: endDate,
-            activities: [],
-            dependencies: [],
-            resources: [],
-            calendars: [{
-                id: 1,
-                name: 'Standard',
-                isDefault: true,
-                workDays: [false, true, true, true, true, true, false],
-                workHoursPerDay: 8,
-                holidays: []
-            }],
-            defaultCalendarId: 1
-        };
-
-        // 3. Save State
-        if (isPlatformBrowser(this.platformId)) {
-            localStorage.setItem(`project_${newId}`, JSON.stringify(initialState));
-        }
-
-        // 4. Update List
-        this.projects.update(list => [...list, newProjectMeta]);
-        this.saveProjectsList();
-
-        this.closeCreateModal();
+        this.apiService.createProject(projectData).subscribe({
+            next: (createdProject) => {
+                const newProjectMeta = {
+                    ...createdProject,
+                    startDate: new Date(createdProject.startDate),
+                    endDate: new Date(createdProject.endDate)
+                };
+                this.projects.update(list => [...list, newProjectMeta]);
+                this.closeCreateModal();
+            },
+            error: (error) => {
+                console.error('Failed to create project:', error);
+                alert('Failed to create project. Please try again.');
+            }
+        });
     }
 
     // --- EDIT PROJECT ---
     openEditModal(project: any, event: Event) {
         event.stopPropagation();
         this.selectedProjectForAction = project.id;
-        this.editingProject = { name: project.name, description: project.description };
+
+        // Format date for <input type="date"> (YYYY-MM-DD)
+        let formattedDate = '';
+        if (project.startDate) {
+            const d = new Date(project.startDate);
+            formattedDate = d.toISOString().split('T')[0];
+        }
+
+        this.editingProject = {
+            name: project.name,
+            description: project.description,
+            startDate: formattedDate
+        };
         this.showEditModal = true;
     }
 
@@ -285,22 +260,32 @@ export class ProjectsPageComponent {
         if (!this.selectedProjectForAction || !this.editingProject.name.trim()) return;
         const pid = this.selectedProjectForAction;
 
-        this.projects.update(list => list.map(p =>
-            p.id === pid ? { ...p, name: this.editingProject.name, description: this.editingProject.description } : p
-        ));
-        this.saveProjectsList();
+        const updateData = {
+            name: this.editingProject.name,
+            description: this.editingProject.description,
+            startDate: new Date(this.editingProject.startDate).toISOString(),
+            // Ensure we calculate/pass endDate as it's required by the UpdateProjectInput record
+            endDate: new Date(new Date(this.editingProject.startDate).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        };
 
-        if (isPlatformBrowser(this.platformId)) {
-            const key = `project_${pid}`;
-            const existing = localStorage.getItem(key);
-            if (existing) {
-                const state = JSON.parse(existing);
-                state.projectName = this.editingProject.name;
-                state.projectDescription = this.editingProject.description;
-                localStorage.setItem(key, JSON.stringify(state));
+        this.apiService.updateProject(pid, updateData).subscribe({
+            next: (updatedProject) => {
+                this.projects.update(list => list.map(p =>
+                    p.id === pid ? {
+                        ...p,
+                        name: updatedProject.name || updatedProject.Name,
+                        description: updatedProject.description || updatedProject.Description,
+                        startDate: new Date(updatedProject.startDate || updatedProject.StartDate),
+                        endDate: new Date(updatedProject.endDate || updatedProject.EndDate)
+                    } : p
+                ));
+                this.closeEditModal();
+            },
+            error: (error) => {
+                console.error('Failed to update project:', error);
+                alert('Failed to update project. Please try again.');
             }
-        }
-        this.closeEditModal();
+        });
     }
 
     // --- DELETE PROJECT ---
@@ -308,37 +293,28 @@ export class ProjectsPageComponent {
         event.stopPropagation();
         if (!confirm("Are you sure you want to delete this project? This cannot be undone.")) return;
 
-        this.projects.update(list => list.filter(p => p.id !== projectId));
-        this.saveProjectsList();
-
-        if (isPlatformBrowser(this.platformId)) {
-            localStorage.removeItem(`project_${projectId}`);
-        }
+        this.apiService.deleteProject(projectId).subscribe({
+            next: () => {
+                this.projects.update(list => list.filter(p => p.id !== projectId));
+            },
+            error: (error) => {
+                console.error('Failed to delete project:', error);
+                alert('Failed to delete project. Please try again.');
+            }
+        });
     }
 
     // --- OPEN PROJECT ---
     openProject(projectId: number) {
-        if (isPlatformBrowser(this.platformId)) {
-            const key = `project_${projectId}`;
-            const savedState = localStorage.getItem(key);
-
-            if (savedState) {
-                try {
-                    const state = JSON.parse(savedState);
-                    this.planningService.loadProjectState(state);
-                } catch (e) {
-                    console.error("Failed to load project state", e);
-                    alert("Error loading project data.");
-                    return;
-                }
-            } else {
-                if (projectId !== 1) { // Allow demo failover if needed, but safer to warn
-                    alert("Project data not found!");
-                    return;
-                }
+        this.planningService.loadFullProject(projectId).subscribe({
+            next: () => {
+                this.router.navigate(['/planning']);
+            },
+            error: (error) => {
+                console.error('Failed to load project:', error);
+                alert('Failed to load project data. Please try again.');
             }
-        }
-        this.router.navigate(['/planning']);
+        });
     }
 
     onFileSelected(event: Event) {
@@ -346,42 +322,23 @@ export class ProjectsPageComponent {
         if (!input.files || input.files.length === 0) return;
 
         const file = input.files[0];
-        const reader = new FileReader();
 
-        reader.onload = (e) => {
-            const content = e.target?.result as string;
-            const projectState = this.xerParser.parse(content);
-
-            if (projectState) {
-                const newId = Date.now();
-
-                // Default to first EPS if available
-                const defaultEPS = this.flattenedEPS().length > 0 ? this.flattenedEPS()[0].id : '';
-
+        this.apiService.importXER(file).subscribe({
+            next: (importedProject) => {
                 const newProject = {
-                    id: newId,
-                    name: (projectState as any).projectName || file.name.replace('.xer', ''),
-                    description: (projectState as any).projectDescription || 'Imported from Primavera P6',
-                    activityCount: projectState.activities.length,
-                    startDate: projectState.projectStartDate,
-                    endDate: projectState.projectEndDate,
-                    epsId: defaultEPS // Default assignment
+                    ...importedProject,
+                    startDate: new Date(importedProject.startDate),
+                    endDate: new Date(importedProject.endDate)
                 };
-
-                if (isPlatformBrowser(this.platformId)) {
-                    (projectState as any).projectId = newId;
-                    localStorage.setItem(`project_${newId}`, JSON.stringify(projectState));
-                }
-
                 this.projects.update(projects => [...projects, newProject]);
-                this.saveProjectsList();
-                this.planningService.loadProjectState(projectState);
+                this.planningService.loadProjectState(importedProject);
                 this.router.navigate(['/planning']);
-            } else {
-                alert('Failed to parse XER file.');
+            },
+            error: (error) => {
+                console.error('Failed to import XER file:', error);
+                alert('Failed to import XER file. Please try again.');
             }
-        };
-        reader.readAsText(file);
+        });
     }
 
     triggerFileInput() {
@@ -420,21 +377,21 @@ export class ProjectsPageComponent {
 
         const projectId = Number(event.dataTransfer?.getData('text/plain'));
         if (projectId) {
-            this.projects.update(list => list.map(p =>
-                p.id === projectId ? { ...p, epsId: targetEpsId } : p
-            ));
-            this.saveProjectsList();
-
-            // Also update persistent state if needed (epsId is mainly metadata)
-            if (isPlatformBrowser(this.platformId)) {
-                const key = `project_${projectId}`;
-                const saved = localStorage.getItem(key);
-                if (saved) {
-                    const state = JSON.parse(saved);
-                    // If we stored epsId in the project state blob, we'd update it here.
-                    // Assuming epsId is only in the metadata list for now.
+            this.apiService.updateProjectEPS(projectId, targetEpsId).subscribe({
+                next: () => {
+                    this.projects.update(list => list.map(p =>
+                        p.id === projectId ? { ...p, epsId: targetEpsId } : p
+                    ));
+                },
+                error: (error) => {
+                    console.error('Failed to update project EPS:', error);
+                    alert('Failed to move project. Please try again.');
                 }
-            }
+            });
         }
+    }
+
+    logout() {
+        this.authService.logout();
     }
 }

@@ -50,6 +50,34 @@
         background-clip: text;
     }
 
+    .search-bar {
+        flex: 1;
+        max-width: 400px;
+        margin: 0 20px;
+
+        .search-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: white;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+
+            &::placeholder {
+                color: rgba(255, 255, 255, 0.5);
+            }
+
+            &:focus {
+                outline: none;
+                background: rgba(255, 255, 255, 0.15);
+                border-color: #667eea;
+                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+            }
+        }
+    }
+
     .actions {
         display: flex;
         gap: 15px;
