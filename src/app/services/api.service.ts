@@ -94,6 +94,9 @@ export class ApiService {
                     startDate
                     endDate
                     defaultCalendarId
+                    activities {
+                        id
+                    }
                 }
                 epsNodes {
                     id
@@ -108,7 +111,11 @@ export class ApiService {
                 const epsNodes = res?.data?.epsNodes || [];
                 return projects.map((p: any) => {
                     const node = epsNodes.find((n: any) => n.projectId === p.id);
-                    return { ...p, epsId: node?.parentId };
+                    return {
+                        ...p,
+                        epsId: node?.parentId,
+                        activityCount: p.activities?.length || 0
+                    };
                 });
             }),
             tap(data => console.log('Fetched projects via GraphQL:', data))
