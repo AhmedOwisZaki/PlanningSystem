@@ -7,7 +7,7 @@ export interface Activity {
     parentId?: number | null;
     isExpanded?: boolean;
     resourceItems?: ResourceItem[];
-    type?: 'Task' | 'StartMilestone' | 'FinishMilestone';
+    type?: 'Task' | 'StartMilestone' | 'FinishMilestone' | 'WBS';
     // Earned Value Management fields
     budgetAtCompletion?: number; // Planned total budget for the activity (BAC)
     actualCost?: number; // Actual cost incurred for the activity (AC)
@@ -70,6 +70,7 @@ export interface Calendar {
     workHoursPerDay: number;
     holidays: Date[];
     description?: string;
+    projectId?: number;
 }
 
 export interface Dependency {

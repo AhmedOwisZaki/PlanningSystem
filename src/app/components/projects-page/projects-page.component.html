@@ -142,6 +142,12 @@
                 <div class="form-group">
                     <label>Description</label>
                     <textarea [(ngModel)]="newProjectData.description" class="form-control" rows="3"></textarea>
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <input type="checkbox" [(ngModel)]="newProjectData.isConstruction">
+                            Construction Project
+                        </label>
+                    </div>
                 </div>
 
             </div>
@@ -200,13 +206,18 @@
                 <div class="form-group">
                     <label>Description</label>
                     <textarea [(ngModel)]="editingProject.description" class="form-control" rows="3"></textarea>
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <input type="checkbox" [(ngModel)]="editingProject.isConstruction">
+                            Construction Project
+                        </label>
+                    </div>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" (click)="closeEditModal()">Cancel</button>
-                <button class="btn-primary" (click)="updateProject()"
-                    [disabled]="!editingProject.name.trim()">Save</button>
+                <div class="modal-footer">
+                    <button class="btn-secondary" (click)="closeEditModal()">Cancel</button>
+                    <button class="btn-primary" (click)="updateProject()"
+                        [disabled]="!editingProject.name.trim()">Save</button>
+                </div>
             </div>
         </div>
     </div>
-</div>

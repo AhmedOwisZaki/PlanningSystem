@@ -197,26 +197,27 @@
     justify-content: center;
   }
 
-  &:hover:not(.wbs-row) {
-    background-color: #e2e6ea;
+  &.wbs-row .col-name {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap !important;
+    z-index: 10;
   }
 
-  &.selected {
-    background-color: #228be6 !important;
-    /* Selected Blue */
-    color: white !important;
-
-    .grid-col {
-      border-right-color: #1971c2;
-    }
+  &:hover:not(.wbs-row) {
+    background-color: #e2e6ea;
   }
 }
 
 /* WBS BANDS COLORS */
 /* WBS BANDS COLORS (Authentic P6) */
 .task-row.wbs-row {
-  color: #000;
+  color: #000 !important;
   font-weight: 600;
+  overflow: visible !important;
+  /* Allow name to spill out */
+  position: relative;
+  /* Create stacking context */
   border-bottom: 1px solid #999;
 
   .col-name {
@@ -224,60 +225,70 @@
   }
 
   &.wbs-root {
-    background-color: #808080 !important;
-    color: white !important;
+    background-color: #808080;
   }
 
-  /* Grey for Project */
-
   &.wbs-level-1 {
-    background-color: #6767db !important;
-    /* Navy Blue */
-    color: rgba(255, 255, 255, 0.699) !important;
+    background-color: #6767db;
 
     .expand-icon {
-      color: rgb(224, 17, 17) !important;
+      color: #000;
     }
   }
 
   &.wbs-level-2 {
-    background-color: #008000 !important;
-    /* Green */
-    color: white !important;
+    background-color: #008000;
 
     .expand-icon {
-      color: white !important;
+      color: #000;
     }
   }
 
   &.wbs-level-3 {
-    background-color: #ffffc0 !important;
-    /* Pale Yellow */
-    color: black !important;
+    background-color: #ffffc0;
   }
 
   &.wbs-level-4 {
-    background-color: #ffc0c0 !important;
-    /* Pale Red/Pink */
-    color: black !important;
+    background-color: #ffc0c0;
   }
 
   &.wbs-level-5 {
-    background-color: #c0ffff !important;
-    color: black !important;
+    background-color: #c0ffff;
   }
 
-  /* Cyan */
   &.wbs-level-6 {
-    background-color: #c0c0c0 !important;
-    color: black !important;
+    background-color: #c0c0c0;
   }
-
-  /* Grey */
 
   &.wbs-level-x {
-    background-color: #ffffff !important;
-    color: black !important;
+    background-color: #ffffff;
+  }
+}
+
+/* SELECTION OVERRIDES (Must be after WBS rules to win specificity) */
+.task-row.selected {
+  background-color: #228be6 !important;
+  color: white !important;
+
+  .grid-col {
+    border-right-color: #1971c2;
+  }
+
+  .expand-icon {
+    color: white !important;
+  }
+
+  &.wbs-row {
+    background-color: #f76707 !important; // Striking Orange for WBS Selection
+    color: #000 !important;
+
+    .grid-col {
+      border-right-color: #d9480f;
+    }
+
+    .expand-icon {
+      color: #000 !important;
+    }
   }
 }
 

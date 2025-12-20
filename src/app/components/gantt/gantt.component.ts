@@ -17,25 +17,29 @@ import { EVMDashboardComponent } from '../evm-dashboard/evm-dashboard.component'
 export class GanttComponent {
   // ... (keep phaseColors up to handleZoom)
   private phaseColors = [
-    '#e3f2fd', // Light Blue
-    '#e8f5e9', // Light Green
-    '#fff3e0', // Light Orange
-    '#f3e5f5', // Light Purple
-    '#ffebee', // Light Red
-    '#e0f2f1', // Light Teal
-    '#fff8e1', // Light Amber
-    '#fce4ec', // Light Pink
+    'rgba(227, 242, 253, 0.5)', // Very Light Blue
+    'rgba(232, 245, 233, 0.5)', // Very Light Green
+    'rgba(255, 243, 224, 0.5)', // Very Light Orange
+    'rgba(243, 229, 245, 0.5)', // Very Light Purple
+    'rgba(252, 228, 236, 0.5)', // Very Light Pink
+    'rgba(239, 235, 233, 0.5)', // Very Light Brown
+    'rgba(255, 253, 231, 0.5)', // Very Light Yellow
+    'rgba(224, 247, 250, 0.5)', // Very Light Cyan
+    'rgba(232, 234, 246, 0.5)', // Light Indigo
+    'rgba(241, 248, 233, 0.5)', // Light Lime
+    'rgba(255, 248, 225, 0.5)', // Light Amber
+    'rgba(236, 239, 241, 0.5)'  // Light Blue Grey
   ];
 
-  getWbsClass(activity: any): string {
-    // 1. Root (Project)
-    if (activity.id === 0) return 'wbs-root';
+  getRowStyle(activity: any) {
+    const backgroundColor = this.getPhaseColor(activity);
+    return { 'background-color': backgroundColor };
+  }
 
-    // 2. Check Level for WBS Bands
+  getWbsClass(activity: any): string {
     if (this.isParentActivity(activity)) {
       const level = this.getActivityLevel(activity);
-      // P6 colors typically cycle: 
-      // L1=Blue, L2=Green, L3=Yellow, L4=Red, L5=Magenta, L6=Grey
+      if (level === 0 && activity.parentId == null) return 'wbs-root';
       switch (level) {
         case 1: return 'wbs-level-1';
         case 2: return 'wbs-level-2';
@@ -46,33 +50,35 @@ export class GanttComponent {
         default: return 'wbs-level-x';
       }
     }
-
     return '';
   }
 
-  getPhaseColor(activity: any): string {
-    // 1. Identify the Phase ancestor (child of Root ID 0)
-    let current = activity;
+  getPhaseColor(activity: any): string | null {
+    if (this.selectedActivity()?.id == activity.id) return null;
+
     const allActivities = this.activities();
 
-    // Safety: prevent infinite loop if data corrupt
-    let depth = 0;
-    while (current && current.parentId !== 0 && current.parentId !== null && depth < 20) {
-      current = allActivities.find(a => a.id === current.parentId);
-      depth++;
-    }
-
-    // Root node (ID 0) gets specific color (Header Grey)
-    if (activity.id === 0) return '#e9ecef';
-
-    // If we found a top-level Phase (parent is 0)
-    if (current && current.parentId === 0) {
-      // Use the Phase's ID to deterministically pick a color
-      const colorIndex = (current.id % this.phaseColors.length);
+    // 1. If it's a WBS, use its own ID for the color
+    if (this.isParentActivity(activity)) {
+      const colorIndex = (Math.abs(Number(activity.id)) % this.phaseColors.length);
       return this.phaseColors[colorIndex];
     }
 
-    return '#ffffff'; // Fallback
+    // 2. If it's a task, find its closest WBS parent
+    let current = activity;
+    let depth = 0;
+    while (current && current.parentId != null && depth < 20) {
+      const parent = allActivities.find(a => a.id == current.parentId);
+      if (!parent) break;
+      if (this.isParentActivity(parent)) {
+        const colorIndex = (Math.abs(Number(parent.id)) % this.phaseColors.length);
+        return this.phaseColors[colorIndex];
+      }
+      current = parent;
+      depth++;
+    }
+
+    return '#ffffff'; // Root level tasks or no WBS ancestor
   }
 
   handleZoom(delta: number) {
@@ -175,15 +181,26 @@ export class GanttComponent {
   });
 
   // Helper to position tasks
-  getTaskLeft(startDate: Date): number {
+  getTaskLeft(activity: any): number {
     const start = this.planningService.projectStartDate();
-    const diffTime = startDate.getTime() - start.getTime();
+    // Use earlyStart if available (calculated by schedule), fallback to manual startDate
+    const actStart = activity.earlyStart ? new Date(activity.earlyStart) : new Date(activity.startDate);
+    const diffTime = actStart.getTime() - start.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays * this.dayWidth * this.zoomLevel();
   }
 
-  getTaskWidth(duration: number): number {
-    return duration * this.dayWidth * this.zoomLevel();
+  getTaskWidth(activity: any): number {
+    const start = activity.earlyStart ? new Date(activity.earlyStart) : new Date(activity.startDate);
+    const end = activity.earlyFinish ? new Date(activity.earlyFinish) : (activity.endDate ? new Date(activity.endDate) : null);
+
+    if (start && end) {
+      const diffTime = end.getTime() - start.getTime();
+      const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return days * this.dayWidth * this.zoomLevel();
+    }
+
+    return (activity.duration || 1) * this.dayWidth * this.zoomLevel();
   }
 
   getBaselineLeft(date: Date): number {
@@ -207,7 +224,8 @@ export class GanttComponent {
     const visible: any[] = [];
 
     const addVisibleActivities = (parentId: number | null | undefined) => {
-      const children = allActivities.filter(a => a.parentId === parentId);
+      // Use == to handle null/undefined and string/number mismatches
+      const children = allActivities.filter(a => (a.parentId || null) == (parentId || null));
       children.forEach(activity => {
         visible.push(activity);
         if (activity.isExpanded !== false && this.planningService.isParent(activity.id)) {
@@ -225,6 +243,7 @@ export class GanttComponent {
   }
 
   isParentActivity(activity: any): boolean {
+    if (activity.type === 'WBS') return true;
     return this.planningService.isParent(activity.id);
   }
 
@@ -288,17 +307,17 @@ export class GanttComponent {
 
         // Source Point X
         if (srcType === 'finish') {
-          x1 = this.getTaskLeft(source.startDate) + this.getTaskWidth(source.duration);
+          x1 = this.getTaskLeft(source) + this.getTaskWidth(source);
         } else {
-          x1 = this.getTaskLeft(source.startDate);
+          x1 = this.getTaskLeft(source);
         }
 
         // Target Point X (with Arrow Gap)
         const arrowLen = 12;
         if (tgtType === 'start') {
-          x2 = this.getTaskLeft(target.startDate) - arrowLen;
+          x2 = this.getTaskLeft(target) - arrowLen;
         } else {
-          x2 = this.getTaskLeft(target.startDate) + this.getTaskWidth(target.duration) + arrowLen;
+          x2 = this.getTaskLeft(target) + this.getTaskWidth(target) + arrowLen;
         }
 
         // Calculate offset for path routing
@@ -492,9 +511,9 @@ export class GanttComponent {
     let x;
 
     if (type === 'start') {
-      x = this.getTaskLeft(activity.startDate);
+      x = this.getTaskLeft(activity);
     } else {
-      x = this.getTaskLeft(activity.startDate) + this.getTaskWidth(activity.duration);
+      x = this.getTaskLeft(activity) + this.getTaskWidth(activity);
     }
 
     this.tempLinkStart = { x, y };
@@ -735,6 +754,12 @@ export class GanttComponent {
   // Controls visibility of the bottom details panel
   isActivityDetailsVisible = signal(false);
 
+  onDeselect(event: MouseEvent) {
+    // If the click bubbled up to the container, deselect
+    console.log('Deselecting activity');
+    this.planningService.setSelectedActivity(null);
+  }
+
   selectActivity(activity: any, event: MouseEvent) {
     event.stopPropagation();
     console.log('Activity selected:', activity);
@@ -743,8 +768,8 @@ export class GanttComponent {
     // Center the chart on the selected activity
     const timeline = document.querySelector('.timeline-panel');
     if (timeline) {
-      const taskLeft = this.getTaskLeft(activity.startDate);
-      const taskWidth = this.getTaskWidth(activity.duration);
+      const taskLeft = this.getTaskLeft(activity);
+      const taskWidth = this.getTaskWidth(activity);
       const center = taskLeft + (taskWidth / 2);
       const viewportWidth = timeline.clientWidth;
 
@@ -769,8 +794,8 @@ export class GanttComponent {
     // Center the chart logic can remain here or move
     const timeline = document.querySelector('.timeline-panel');
     if (timeline) {
-      const taskLeft = this.getTaskLeft(activity.startDate);
-      const taskWidth = this.getTaskWidth(activity.duration);
+      const taskLeft = this.getTaskLeft(activity);
+      const taskWidth = this.getTaskWidth(activity);
       const center = taskLeft + (taskWidth / 2);
       const viewportWidth = timeline.clientWidth;
 

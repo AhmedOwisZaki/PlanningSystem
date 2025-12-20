@@ -24,6 +24,7 @@
             <label>Type:</label>
             <select [value]="selectedActivity()!.type || 'Task'" (change)="onTypeChange($event)">
                 <option value="Task">Task Based</option>
+                <option value="WBS">WBS Summary</option>
                 <option value="StartMilestone">Start Milestone</option>
                 <option value="FinishMilestone">Finish Milestone</option>
             </select>

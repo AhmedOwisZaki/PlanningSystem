@@ -142,7 +142,7 @@
             <ng-container *ngIf="!editingCalendar()">
                 <div class="feature-header">
                     <h3>Work Calendars</h3>
-                    <button class="btn-add-feature" (click)="startAddCalendar()">+ New Calendar</button>
+                    <button class="btn-add-feature" (click)="startAddCalendar()">New Calendar</button>
                 </div>
 
                 <div class="calendar-list">
@@ -228,9 +228,16 @@
                     </div>
                 </div>
 
-                <div class="form-actions">
-                    <button class="btn-cancel" (click)="cancelEditCalendar()">Cancel</button>
-                    <button class="btn-save" (click)="saveCalendar()">Save Calendar</button>
+                <div class="form-actions" style="position: relative;">
+                    <div *ngIf="saveError()" class="error-feedback">
+                        {{ saveError() }}
+                    </div>
+
+                    <button class="btn-cancel" (click)="cancelEditCalendar()" [disabled]="isSaving()">Cancel</button>
+                    <button class="btn-save" (click)="saveCalendar()" [disabled]="isSaving()">
+                        <span *ngIf="!isSaving()">Save Calendar</span>
+                        <span *ngIf="isSaving()" class="loader-inline">Saving...</span>
+                    </button>
                 </div>
             </div>
 
@@ -246,7 +253,8 @@
             <div class="add-code-form">
                 <input type="text" [ngModel]="newCodeDefName()" (ngModelChange)="newCodeDefName.set($event)"
                     placeholder="New Code Name (e.g. Phase)" class="form-control" (keyup.enter)="startAddCodeDef()">
-                <button class="btn-add-feature" (click)="startAddCodeDef()" [disabled]="!newCodeDefName()">+</button>
+                <button class="btn-add-feature" (click)="startAddCodeDef()" [disabled]="!newCodeDefName()">Code
+                    Definition</button>
             </div>
 
             <!-- List of Codes -->

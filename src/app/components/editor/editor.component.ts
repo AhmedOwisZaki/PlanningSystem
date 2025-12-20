@@ -38,6 +38,10 @@ export class EditorComponent {
     newCodeValue = signal('');
     newCodeColor = signal('#339af0');
 
+    // UI state for operations
+    isSaving = signal(false);
+    saveError = signal<string | null>(null);
+
 
 
     // Calendar Management State
@@ -176,7 +180,8 @@ export class EditorComponent {
             isDefault: false,
             workDays: [false, true, true, true, true, true, false],
             workHoursPerDay: 8,
-            holidays: []
+            holidays: [],
+            projectId: this.planningService.state().projectId
         };
         this.editingCalendar.set(newCal);
         this.isNewCalendar.set(true);
@@ -197,12 +202,24 @@ export class EditorComponent {
         const cal = this.editingCalendar();
         if (!cal) return;
 
-        if (this.isNewCalendar()) {
-            this.planningService.addCalendar(cal);
-        } else {
-            this.planningService.updateCalendar(cal);
-        }
-        this.editingCalendar.set(null);
+        this.isSaving.set(true);
+        this.saveError.set(null);
+
+        const obs = this.isNewCalendar()
+            ? this.planningService.addCalendar(cal)
+            : this.planningService.updateCalendar(cal);
+
+        obs.subscribe({
+            next: () => {
+                this.isSaving.set(false);
+                this.editingCalendar.set(null);
+            },
+            error: (err) => {
+                this.isSaving.set(false);
+                this.saveError.set(err.message || 'Failed to save calendar. Please check your connection and try again.');
+                console.error('Save failed:', err);
+            }
+        });
     }
 
     cancelEditCalendar() {

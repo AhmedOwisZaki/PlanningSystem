@@ -2,7 +2,7 @@ import { Injectable, signal, computed, WritableSignal, PLATFORM_ID, inject, effe
 import { isPlatformBrowser } from '@angular/common';
 import { Activity, Dependency, ProjectState, ActivityStep, Calendar } from '../models/planning.models';
 import { ApiService } from './api.service';
-import { forkJoin, map } from 'rxjs';
+import { forkJoin, map, Observable, tap } from 'rxjs';
 
 @Injectable({
     providedIn: 'root'
@@ -12,126 +12,16 @@ export class PlanningService {
 
     // State Signals
     public state: WritableSignal<ProjectState> = signal({
-        projectStartDate: new Date('2025-01-01'),
-        projectEndDate: new Date('2025-12-31'),
-        projectId: 1, // Default ID
-        projectName: 'Reference Project',
-        activities: [
-            // Root WBS
-            { id: 0, name: 'Total Project', startDate: new Date('2025-01-01'), duration: 320, percentComplete: 35, parentId: null, isExpanded: true },
-            // WBS 1: Project Initiation (15 activities)
-            { id: 1, name: 'Phase 1: Project Initiation', startDate: new Date('2025-01-01'), duration: 30, percentComplete: 80, parentId: 0, isExpanded: true },
-            { id: 2, name: 'Charter Development', startDate: new Date('2025-01-01'), duration: 5, percentComplete: 100, parentId: 1, resourceItems: [{ id: 1, activityId: 2, resourceId: 101, amount: 8 }] },
-            { id: 3, name: 'Stakeholder Identification', startDate: new Date('2025-01-06'), duration: 3, percentComplete: 100, parentId: 1, resourceItems: [{ id: 2, activityId: 3, resourceId: 102, amount: 16 }] },
-            { id: 4, name: 'Initial Risk Assessment', startDate: new Date('2025-01-09'), duration: 4, percentComplete: 90, parentId: 1 },
-            { id: 5, name: 'Budget Estimation', startDate: new Date('2025-01-13'), duration: 5, percentComplete: 85, parentId: 1 },
-            { id: 6, name: 'Resource Planning', startDate: new Date('2025-01-18'), duration: 4, percentComplete: 75, parentId: 1 },
-            { id: 7, name: 'Kickoff Meeting Prep', startDate: new Date('2025-01-22'), duration: 3, percentComplete: 70, parentId: 1 },
-            { id: 8, name: 'Communication Plan', startDate: new Date('2025-01-25'), duration: 3, percentComplete: 60, parentId: 1 },
-            { id: 9, name: 'Quality Standards', startDate: new Date('2025-01-28'), duration: 3, percentComplete: 50, parentId: 1 },
-
-            // WBS 2: Planning (20 activities)
-            { id: 10, name: 'Phase 2: Planning', startDate: new Date('2025-02-01'), duration: 45, percentComplete: 60, parentId: 0, isExpanded: true },
-            { id: 11, name: 'Requirements Gathering', startDate: new Date('2025-02-01'), duration: 7, percentComplete: 100, parentId: 10 },
-            { id: 12, name: 'Requirements Analysis', startDate: new Date('2025-02-08'), duration: 5, percentComplete: 90, parentId: 10 },
-            { id: 13, name: 'Requirements Documentation', startDate: new Date('2025-02-13'), duration: 4, percentComplete: 85, parentId: 10 },
-            { id: 14, name: 'Scope Definition', startDate: new Date('2025-02-17'), duration: 5, percentComplete: 80, parentId: 10 },
-            { id: 15, name: 'WBS Creation', startDate: new Date('2025-02-22'), duration: 3, percentComplete: 75, parentId: 10 },
-            { id: 16, name: 'Schedule Development', startDate: new Date('2025-02-25'), duration: 6, percentComplete: 70, parentId: 10 },
-            { id: 17, name: 'Cost Estimation', startDate: new Date('2025-03-03'), duration: 5, percentComplete: 65, parentId: 10 },
-            { id: 18, name: 'Resource Allocation', startDate: new Date('2025-03-08'), duration: 4, percentComplete: 60, parentId: 10 },
-            { id: 19, name: 'Risk Planning', startDate: new Date('2025-03-12'), duration: 5, percentComplete: 55, parentId: 10 },
-            { id: 20, name: 'Quality Planning', startDate: new Date('2025-03-17'), duration: 4, percentComplete: 50, parentId: 10 },
-            { id: 21, name: 'Procurement Planning', startDate: new Date('2025-03-21'), duration: 3, percentComplete: 45, parentId: 10 },
-            { id: 22, name: 'Baseline Approval', startDate: new Date('2025-03-24'), duration: 2, percentComplete: 40, parentId: 10 },
-
-            // WBS 3: Design (18 activities)
-            { id: 23, name: 'Phase 3: Design', startDate: new Date('2025-03-26'), duration: 50, percentComplete: 40, parentId: 0, isExpanded: true },
-            { id: 24, name: 'Architecture Design', startDate: new Date('2025-03-26'), duration: 8, percentComplete: 70, parentId: 23 },
-            { id: 25, name: 'Database Design', startDate: new Date('2025-04-03'), duration: 6, percentComplete: 65, parentId: 23 },
-            { id: 26, name: 'UI/UX Design', startDate: new Date('2025-04-09'), duration: 7, percentComplete: 60, parentId: 23 },
-            { id: 27, name: 'API Design', startDate: new Date('2025-04-16'), duration: 5, percentComplete: 55, parentId: 23 },
-            { id: 28, name: 'Security Design', startDate: new Date('2025-04-21'), duration: 6, percentComplete: 50, parentId: 23 },
-            { id: 29, name: 'Integration Design', startDate: new Date('2025-04-27'), duration: 5, percentComplete: 45, parentId: 23 },
-            { id: 30, name: 'Performance Design', startDate: new Date('2025-05-02'), duration: 4, percentComplete: 40, parentId: 23 },
-            { id: 31, name: 'Design Review', startDate: new Date('2025-05-06'), duration: 3, percentComplete: 35, parentId: 23 },
-            { id: 32, name: 'Design Approval', startDate: new Date('2025-05-09'), duration: 2, percentComplete: 30, parentId: 23 },
-
-            // WBS 4: Development (25 activities)
-            { id: 33, name: 'Phase 4: Development', startDate: new Date('2025-05-11'), duration: 90, percentComplete: 25, parentId: 0, isExpanded: true },
-            { id: 34, name: 'Environment Setup', startDate: new Date('2025-05-11'), duration: 3, percentComplete: 100, parentId: 33 },
-            { id: 35, name: 'Database Implementation', startDate: new Date('2025-05-14'), duration: 8, percentComplete: 80, parentId: 33 },
-            { id: 36, name: 'Backend Development - Auth', startDate: new Date('2025-05-22'), duration: 7, percentComplete: 70, parentId: 33 },
-            { id: 37, name: 'Backend Development - Core', startDate: new Date('2025-05-29'), duration: 10, percentComplete: 60, parentId: 33 },
-            { id: 38, name: 'Backend Development - API', startDate: new Date('2025-06-08'), duration: 8, percentComplete: 50, parentId: 33 },
-            { id: 39, name: 'Frontend Development - Layout', startDate: new Date('2025-06-16'), duration: 6, percentComplete: 40, parentId: 33 },
-            { id: 40, name: 'Frontend Development - Components', startDate: new Date('2025-06-22'), duration: 9, percentComplete: 35, parentId: 33 },
-            { id: 41, name: 'Frontend Development - Pages', startDate: new Date('2025-07-01'), duration: 8, percentComplete: 30, parentId: 33 },
-            { id: 42, name: 'Integration Development', startDate: new Date('2025-07-09'), duration: 7, percentComplete: 25, parentId: 33 },
-            { id: 43, name: 'Security Implementation', startDate: new Date('2025-07-16'), duration: 6, percentComplete: 20, parentId: 33 },
-            { id: 44, name: 'Performance Optimization', startDate: new Date('2025-07-22'), duration: 5, percentComplete: 15, parentId: 33 },
-            { id: 45, name: 'Error Handling', startDate: new Date('2025-07-27'), duration: 4, percentComplete: 10, parentId: 33 },
-            { id: 46, name: 'Logging Implementation', startDate: new Date('2025-07-31'), duration: 3, percentComplete: 5, parentId: 33 },
-            { id: 47, name: 'Code Review', startDate: new Date('2025-08-03'), duration: 5, percentComplete: 0, parentId: 33 },
-
-            // WBS 5: Testing (15 activities)
-            { id: 48, name: 'Phase 5: Testing', startDate: new Date('2025-08-08'), duration: 60, percentComplete: 10, parentId: 0, isExpanded: true },
-            { id: 49, name: 'Test Plan Creation', startDate: new Date('2025-08-08'), duration: 5, percentComplete: 80, parentId: 48 },
-            { id: 50, name: 'Unit Testing', startDate: new Date('2025-08-13'), duration: 10, percentComplete: 60, parentId: 48 },
-            { id: 51, name: 'Integration Testing', startDate: new Date('2025-08-23'), duration: 8, percentComplete: 40, parentId: 48 },
-            { id: 52, name: 'System Testing', startDate: new Date('2025-08-31'), duration: 10, percentComplete: 30, parentId: 48 },
-            { id: 53, name: 'Performance Testing', startDate: new Date('2025-09-10'), duration: 7, percentComplete: 20, parentId: 48 },
-            { id: 54, name: 'Security Testing', startDate: new Date('2025-09-17'), duration: 6, percentComplete: 15, parentId: 48 },
-            { id: 55, name: 'UAT Preparation', startDate: new Date('2025-09-23'), duration: 4, percentComplete: 10, parentId: 48 },
-            { id: 56, name: 'UAT Execution', startDate: new Date('2025-09-27'), duration: 8, percentComplete: 5, parentId: 48 },
-            { id: 57, name: 'Bug Fixing', startDate: new Date('2025-10-05'), duration: 10, percentComplete: 0, parentId: 48 },
-            { id: 58, name: 'Regression Testing', startDate: new Date('2025-10-15'), duration: 5, percentComplete: 0, parentId: 48 },
-
-            // WBS 6: Deployment & Closure (7 activities)
-            { id: 59, name: 'Phase 6: Deployment & Closure', startDate: new Date('2025-10-20'), duration: 40, percentComplete: 0, parentId: 0, isExpanded: true },
-            { id: 60, name: 'Deployment Planning', startDate: new Date('2025-10-20'), duration: 5, percentComplete: 0, parentId: 59 },
-            { id: 61, name: 'Production Setup', startDate: new Date('2025-10-25'), duration: 6, percentComplete: 0, parentId: 59 },
-            { id: 62, name: 'Data Migration', startDate: new Date('2025-10-31'), duration: 7, percentComplete: 0, parentId: 59 },
-            { id: 63, name: 'Go-Live', startDate: new Date('2025-11-07'), duration: 3, percentComplete: 0, parentId: 59 },
-            { id: 64, name: 'Post-Deployment Support', startDate: new Date('2025-11-10'), duration: 10, percentComplete: 0, parentId: 59 },
-            { id: 65, name: 'Documentation', startDate: new Date('2025-11-20'), duration: 5, percentComplete: 0, parentId: 59 },
-            { id: 66, name: 'Project Closure', startDate: new Date('2025-11-25'), duration: 5, percentComplete: 0, parentId: 59 }
-        ],
-        dependencies: [
-            { id: 1, sourceId: 2, targetId: 3, type: 'FS' },
-            { id: 2, sourceId: 3, targetId: 4, type: 'FS' },
-            { id: 3, sourceId: 11, targetId: 12, type: 'FS' },
-            { id: 4, sourceId: 12, targetId: 13, type: 'FS' },
-            { id: 5, sourceId: 24, targetId: 25, type: 'FS' },
-            { id: 6, sourceId: 25, targetId: 26, type: 'FS' },
-            { id: 7, sourceId: 35, targetId: 36, type: 'FS' },
-            { id: 8, sourceId: 36, targetId: 37, type: 'FS' },
-            { id: 9, sourceId: 50, targetId: 51, type: 'FS' },
-            { id: 10, sourceId: 51, targetId: 52, type: 'FS' }
-        ],
-        resourceTypes: [
-            { id: 1, name: 'Human', description: 'Labor resources' },
-            { id: 2, name: 'Machine', description: 'Equipment and machinery' },
-            { id: 3, name: 'Material', description: 'Consumable materials' }
-        ],
-        resources: [
-            { id: 101, name: 'Project Manager', unit: 'hour', costPerUnit: 150, resourceTypeId: 1 },
-            { id: 102, name: 'Senior Developer', unit: 'hour', costPerUnit: 120, resourceTypeId: 1 },
-            { id: 103, name: 'Concrete', unit: 'm3', costPerUnit: 200, resourceTypeId: 3 },
-            { id: 104, name: 'Excavator', unit: 'day', costPerUnit: 1200, resourceTypeId: 2 }
-        ],
-        calendars: [
-            {
-                id: 1,
-                name: 'Standard Work Week',
-                isDefault: true,
-                workDays: [false, true, true, true, true, true, false], // Sun-Sat
-                workHoursPerDay: 8,
-                holidays: [],
-                description: '5-day work week, Monday-Friday'
-            }
-        ],
-        defaultCalendarId: 1
+        projectStartDate: new Date(),
+        projectEndDate: new Date(),
+        projectId: 0,
+        projectName: '',
+        activities: [],
+        dependencies: [],
+        resourceTypes: [],
+        resources: [],
+        calendars: [],
+        defaultCalendarId: 0
     });
 
     // Selectors
@@ -153,30 +43,63 @@ export class PlanningService {
     }
 
     // Calendar Management
-    addCalendar(calendar: Partial<Calendar>) {
-        // Map partial to full object for API if needed, or let API handle validation
-        this.apiService.createCalendar(calendar).subscribe({
-            next: (createdCal) => {
-                this.state.update(current => ({
-                    ...current,
-                    calendars: [...(current.calendars || []), createdCal]
-                }));
-            },
-            error: (err) => console.error('Failed to create calendar:', err)
-        });
+    private mapApiCalendar(c: any): Calendar {
+        const dayMap: { [key: string]: number } = {
+            'SUNDAY': 0, 'MONDAY': 1, 'TUESDAY': 2, 'WEDNESDAY': 3,
+            'THURSDAY': 4, 'FRIDAY': 5, 'SATURDAY': 6
+        };
+        const getDayVal = (day: any) => typeof day === 'string' ? dayMap[day.toUpperCase()] : day;
+
+        // Ensure we have 7 days, default to working Mon-Fri if missing
+        let workDays = [false, true, true, true, true, true, false];
+        if (c.workDays && c.workDays.length > 0) {
+            const sorted = [...c.workDays].sort((a: any, b: any) => getDayVal(a.dayOfWeek) - getDayVal(b.dayOfWeek));
+            // Only use if we actually got days back
+            if (sorted.length === 7) {
+                workDays = sorted.map((wd: any) => wd.isWorkDay);
+            } else if (sorted.length > 0) {
+                // If partial, map specifically to the right indices
+                const fullDays = new Array(7).fill(false);
+                sorted.forEach(wd => {
+                    const idx = getDayVal(wd.dayOfWeek);
+                    if (idx >= 0 && idx < 7) fullDays[idx] = wd.isWorkDay;
+                });
+                workDays = fullDays;
+            }
+        }
+
+        return {
+            ...c,
+            holidays: (c.holidays || []).map((h: any) => new Date(h.date || h)),
+            workDays: workDays
+        };
     }
 
-    updateCalendar(updatedCalendar: Calendar) {
-        this.apiService.updateCalendar(updatedCalendar.id, updatedCalendar).subscribe({
-            next: () => {
+    addCalendar(calendar: Partial<Calendar>): Observable<Calendar> {
+        if (!calendar.projectId) {
+            calendar.projectId = this.state().projectId;
+        }
+        return this.apiService.createCalendar(calendar).pipe(
+            map(createdCal => this.mapApiCalendar(createdCal)),
+            tap(mapped => {
                 this.state.update(current => ({
                     ...current,
-                    calendars: (current.calendars || []).map(c => c.id === updatedCalendar.id ? updatedCalendar : c)
+                    calendars: [...(current.calendars || []), mapped]
                 }));
-                // Logic for default calendar handling might be needed if changed
-            },
-            error: (err) => console.error('Failed to update calendar:', err)
-        });
+            })
+        );
+    }
+
+    updateCalendar(updatedCalendar: Calendar): Observable<Calendar> {
+        return this.apiService.updateCalendar(updatedCalendar.id, updatedCalendar).pipe(
+            map(savedCal => this.mapApiCalendar(savedCal)),
+            tap(mapped => {
+                this.state.update(current => ({
+                    ...current,
+                    calendars: (current.calendars || []).map(c => c.id === mapped.id ? mapped : c)
+                }));
+            })
+        );
     }
 
     deleteCalendar(calendarId: number) {
@@ -232,52 +155,43 @@ export class PlanningService {
 
     private addWorkDays(startDate: Date, days: number, calendar: Calendar): Date {
         let current = new Date(startDate);
-        let daysAdded = 0;
 
-        // If simpler logic needed: 
-        // 0 duration = same day (start/finish)
-        // 1 duration = start + end same day (if workday)
-
-        // We need to advance 'days' amount of working days.
-        // Standard convention: Finish = Start + Duration - 1 (inclusive)
-        // But for calculation, we find the date that is 'days' working days away.
-
-        // Logic: 
-        // 1. Check if start date itself is working day. If not, move to next working day?
-        // Usually Start Date is assumed valid or moved to next valid.
-        // Let's ensure start is valid first
+        // Ensure start is valid work day
         while (!this.isWorkDay(current, calendar)) {
             current.setDate(current.getDate() + 1);
         }
 
-        if (days <= 0) return current; // Milestone or zero duration
+        if (days <= 0) return current;
 
-        // We usually want: Finish Date.
-        // If Duration is 1 day, Finish = Start.
-        // So we iterate (days - 1) times to find Finish.
-
-        let remaining = days - 1;
+        // Exclusive Logic: Return date that is 'days' working days FROM start.
+        // If Duration 1: Start Jan 1. End Jan 2 (Morning).
+        // Iterate 'days' times.
+        let remaining = days;
         while (remaining > 0) {
             current.setDate(current.getDate() + 1);
             if (this.isWorkDay(current, calendar)) {
                 remaining--;
             }
         }
-
         return current;
     }
 
     private subtractWorkDays(endDate: Date, days: number, calendar: Calendar): Date {
         let current = new Date(endDate);
 
-        // Ensure end date is valid working day
+        // Ensure end date is valid work day BACKWARDS?
+        // Usually endDate is Exclusive (Morning of next day).
+        // If Jan 2 is End. Jan 1 is Last Work Day.
+
         while (!this.isWorkDay(current, calendar)) {
             current.setDate(current.getDate() - 1);
         }
 
         if (days <= 0) return current;
 
-        let remaining = days - 1;
+        // Iterate 'days' times backwards
+        // If End Jan 2. Dur 1. Start Jan 1.
+        let remaining = days;
         while (remaining > 0) {
             current.setDate(current.getDate() - 1);
             if (this.isWorkDay(current, calendar)) {
@@ -293,8 +207,12 @@ export class PlanningService {
         // Auto-save effect removed as we now save explicitly via API
 
         if (isPlatformBrowser(this.platformId)) {
-            // Load LAST opened project if available?
-            // For now, ProjectsPage handles loading specific projects.
+            const lastProjectId = localStorage.getItem('last_opened_project_id');
+            if (lastProjectId) {
+                this.loadFullProject(Number(lastProjectId)).subscribe({
+                    error: (err) => console.error('Failed to auto-load last project:', err)
+                });
+            }
         }
     }
 
@@ -312,6 +230,8 @@ export class PlanningService {
                     projectEndDate: new Date(project.endDate),
                     activities: data.activities.map((a: any) => ({
                         ...a,
+                        id: Number(a.id),
+                        parentId: a.parentId ? Number(a.parentId) : null,
                         startDate: new Date(a.startDate),
                         earlyStart: a.earlyStart ? new Date(a.earlyStart) : undefined,
                         earlyFinish: a.earlyFinish ? new Date(a.earlyFinish) : undefined,
@@ -322,16 +242,18 @@ export class PlanningService {
                     })),
                     dependencies: data.dependencies,
                     resources: data.resources,
-                    calendars: data.calendars.map((c: any) => ({
-                        ...c,
-                        holidays: (c.holidays || []).map((h: any) => new Date(h.date)),
-                        workDays: (c.workDays || []).sort((a: any, b: any) => a.dayOfWeek - b.dayOfWeek).map((wd: any) => wd.isWorkDay)
-                    })),
+                    calendars: data.calendars.map((c: any) => this.mapApiCalendar(c)),
                     activityCodeDefinitions: []
                 };
 
                 this.state.set(newState);
                 this.scheduleProject();
+
+                // Persistence: Save last opened project ID
+                if (isPlatformBrowser(this.platformId)) {
+                    localStorage.setItem('last_opened_project_id', projectId.toString());
+                }
+
                 return true;
             })
         );
@@ -441,30 +363,72 @@ export class PlanningService {
         console.warn('Redo not supported in API mode yet');
     }
 
-    addActivity(parentId: number | null = null) {
+    addActivity(parentId: number | null = null, name: string = 'New Activity', isWBS: boolean = false) {
+        const startDate = new Date();
+        // Reset time to start of day for consistency? Or keep current time? 
+        // P6 usually defaults to start of work day (08:00). Let's just keep as is or clean it.
+        // For now, keep as is but ensures dates align.
+
+        const duration = isWBS ? 1 : 5; // Default WBS to 1 day if forced, or 0? user said "min start, max end". 
+        // If WBS, duration is calculated. Start with 1? Or 0. 
+        // Previous code said 0. But for tasks, 5. 
+
         const newActivity = {
-            name: 'New Activity',
-            startDate: new Date(), // API expects ISO string usually, but let's check Service
-            duration: 5,
+            name: name,
+            startDate: startDate,
+            duration: isWBS ? 0 : 5, // WBS 0, Task 5
             percentComplete: 0,
             parentId: parentId,
-            projectId: this.state().projectId
+            projectId: this.state().projectId,
+            type: isWBS ? 'WBS' : 'Task'
         };
 
         this.apiService.createActivity(newActivity).subscribe({
             next: (createdActivity) => {
+                // Calculate implicit finish date for immediate display using project calendar
+                const start = new Date(createdActivity.startDate);
+                const dur = createdActivity.duration;
+                const cal = this.getCalendar(createdActivity.calendarId);
+                const finish = this.addWorkDays(start, dur, cal);
+
+                const mappedActivity = {
+                    ...createdActivity,
+                    id: Number(createdActivity.id),
+                    parentId: createdActivity.parentId ? Number(createdActivity.parentId) : null,
+                    startDate: start,
+                    // Ensure visual bar exists immediately
+                    earlyStart: start,
+                    earlyFinish: finish,
+                    isExpanded: true
+                };
                 this.state.update(current => ({
                     ...current,
-                    activities: [...current.activities, {
-                        ...createdActivity,
-                        startDate: new Date(createdActivity.startDate),
-                        // Handle other dates if returned
-                    }]
+                    activities: [...current.activities, mappedActivity]
                 }));
+
+                // Trigger rollups immediately to update parents
+                this.applyRollups();
+
                 this.recalculateProjectBounds();
+                if (parentId !== null) {
+                    this.toggleExpand(parentId, true);
+                }
             },
             error: (err) => console.error('Failed to create activity:', err)
         });
+    }
+
+    // Rollup Trigger
+    private applyRollups() {
+        const activities = [...this.state().activities];
+        this.rollupWBS(activities);
+        // Persist changes
+        activities.filter(a => a.type === 'WBS').forEach(wbs => {
+            this.apiService.updateActivity(wbs.id, wbs).subscribe({
+                error: (err) => console.error(`Failed to sync rollup for ${wbs.id}`, err)
+            });
+        });
+        this.state.update(s => ({ ...s, activities }));
     }
 
     deleteActivity(activityId: number) {
@@ -482,12 +446,18 @@ export class PlanningService {
                     dependencies: current.dependencies.filter(d => d.sourceId !== activityId && d.targetId !== activityId)
                 }));
                 this.recalculateProjectBounds();
+                this.applyRollups();
             },
             error: (err) => console.error('Failed to delete activity:', err)
         });
     }
 
     updateActivity(updatedActivity: Activity) {
+        // Enforce date consistency immediately for UI feedback
+        const cal = this.getCalendar(updatedActivity.calendarId);
+        updatedActivity.earlyStart = new Date(updatedActivity.startDate);
+        updatedActivity.earlyFinish = this.addWorkDays(updatedActivity.earlyStart, updatedActivity.duration, cal);
+
         // Optimistic update? Or wait? Let's wait for now to be safe.
         this.apiService.updateActivity(updatedActivity.id, updatedActivity).subscribe({
             next: (savedProjectActivity) => {
@@ -496,6 +466,7 @@ export class PlanningService {
                     activities: current.activities.map(a => a.id === updatedActivity.id ? updatedActivity : a)
                 }));
                 this.recalculateProjectBounds();
+                this.applyRollups();
             },
             error: (err) => console.error('Failed to update activity:', err)
         });
@@ -583,16 +554,16 @@ export class PlanningService {
     }
 
     getLevel(activityId: number): number {
-        const activity = this.state().activities.find(a => a.id === activityId);
-        if (!activity || activity.parentId === null || activity.parentId === undefined) return 0;
+        const activity = this.state().activities.find(a => a.id == activityId);
+        if (!activity || activity.parentId == null) return 0;
         return 1 + this.getLevel(activity.parentId);
     }
 
-    toggleExpand(activityId: number) {
+    toggleExpand(activityId: number, expanded?: boolean) {
         this.state.update(current => ({
             ...current,
             activities: current.activities.map(a =>
-                a.id === activityId ? { ...a, isExpanded: !a.isExpanded } : a
+                a.id === activityId ? { ...a, isExpanded: expanded !== undefined ? expanded : !a.isExpanded } : a
             )
         }));
     }
@@ -702,24 +673,25 @@ export class PlanningService {
 
                     let baseDate = new Date(src.earlyFinish);
 
-                    // Move to next working day (Start of next period)
-                    baseDate.setDate(baseDate.getDate() + 1);
+                    // Ensure baseDate is a valid working day for the start of the successor
                     while (!this.isWorkDay(baseDate, calendar)) {
                         baseDate.setDate(baseDate.getDate() + 1);
                     }
 
                     // Add Lag
-                    potentialStart = this.addWorkDays(baseDate, lag + 1, calendar);
-                    // Wait, addWorkDays adds (N-1). If Lag is 0, we want exactly baseDate.
-                    // If addWorkDays(baseDate, 1) -> Returns baseDate. Correct.
+                    potentialStart = this.addWorkDays(baseDate, lag, calendar);
+                    // Exclusive Logic: baseDate is already the 'next work day'. 
+                    // If Lag = 0, we start on baseDate. addWorkDays(d, 0) returns d. Correct.
                     // So addWorkDays(baseDate, lag + 1) -> Returns date (lag) days after baseDate.
                 } else if (dep.type === 'SS') {
                     // Start to Start: Start = Pred Start + Lag
-                    potentialStart = this.addWorkDays(src.earlyStart!, lag + 1, calendar);
+                    potentialStart = this.addWorkDays(src.earlyStart!, lag, calendar);
                 } else if (dep.type === 'FF') {
                     // Finish to Finish: Finish = Pred Finish + Lag
                     // Derived Start = Finish - Duration
-                    const finishDate = this.addWorkDays(src.earlyFinish, lag + 1, calendar);
+                    // Finish to Finish: Finish = Pred Finish + Lag
+                    // Derived Start = Finish - Duration
+                    const finishDate = this.addWorkDays(src.earlyFinish, lag, calendar);
                     // Back calculate Start
                     potentialStart = this.subtractWorkDays(finishDate, act.duration, calendar);
                 } else {
@@ -776,11 +748,11 @@ export class PlanningService {
                     // So Pred Finish = Succ Start - Lag - 1
 
                     // 1. Shift back Lag
-                    let baseDate = this.subtractWorkDays(tgt.lateStart, lag + 1, calendar);
+                    let baseDate = this.subtractWorkDays(tgt.lateStart, lag, calendar);
 
-                    // 2. Shift back 1 day (because FS implies Next Day Start)
-                    // Move to previous working day
-                    baseDate.setDate(baseDate.getDate() - 1);
+                    // With exclusive dates, lateFinish of pred = lateStart of succ (if lag 0)
+                    // No need to shift back 1 day manually.
+                    // Just ensure baseDate lands on a valid work day if we were at a boundary.
                     while (!this.isWorkDay(baseDate, calendar)) {
                         baseDate.setDate(baseDate.getDate() - 1);
                     }
@@ -790,11 +762,14 @@ export class PlanningService {
                     // Pred Start = Succ Start - Lag
                     // So Pred Late Start <= Succ Late Start - Lag
                     // Derived Late Finish from Late Start
-                    const lateStartLim = this.subtractWorkDays(tgt.lateStart, lag + 1, calendar);
+                    // Pred Start = Succ Start - Lag
+                    // So Pred Late Start <= Succ Late Start - Lag
+                    // Derived Late Finish from Late Start
+                    const lateStartLim = this.subtractWorkDays(tgt.lateStart, lag, calendar);
                     potentialFinish = this.addWorkDays(lateStartLim, act.duration, calendar);
                 } else if (dep.type === 'FF') {
                     // Pred Finish = Succ Finish - Lag
-                    potentialFinish = this.subtractWorkDays(tgt.lateFinish!, lag + 1, calendar);
+                    potentialFinish = this.subtractWorkDays(tgt.lateFinish!, lag, calendar);
                 } else {
                     potentialFinish = new Date(tgt.lateStart);
                 }
@@ -815,6 +790,16 @@ export class PlanningService {
 
         // 6. Rollup Summaries (WBS)
         this.rollupWBS(activities);
+
+        // Persist WBS changes (Dates/Percent)
+        activities.filter(a => a.type === 'WBS').forEach(wbs => {
+            // Check if changed from state? Or just update all WBS?
+            // Ideally we only update if changed. But simpler to just update for now or check dirty flag.
+            // Let's rely on the fact that we just computed it.
+            this.apiService.updateActivity(wbs.id, wbs).subscribe({
+                error: (err) => console.error(`Failed to sync WBS ${wbs.id}:`, err)
+            });
+        });
 
         this.state.update(s => ({
             ...s,
@@ -841,8 +826,8 @@ export class PlanningService {
         activities.forEach(a => {
             const start = a.startDate ? new Date(a.startDate) : null;
             // End date = Start + Duration days
-            // Approximate end date for bounds check
-            const end = start ? new Date(start.getTime() + (a.duration || 1) * 24 * 60 * 60 * 1000) : null;
+            const cal = this.getCalendar(a.calendarId);
+            const end = start ? this.addWorkDays(start, a.duration || 1, cal) : null;
 
             if (start && start < minStart) {
                 minStart = start;
@@ -887,12 +872,9 @@ export class PlanningService {
         const activitieswithLevel = activities.map(a => ({ a, level: getLevel(a.id) }));
         activitieswithLevel.sort((x, y) => y.level - x.level); // Deepest first
 
-        // Set of processed IDs to avoid double work if strictly hierarchical
-        const processed = new Set<number>();
-
+        // Process strictly bottom-up
         for (const { a } of activitieswithLevel) {
-            // If it is a parent (has children), calculate based on children
-            // Need to check if it IS a parent.
+            // Find children in current activities list
             const children = activities.filter(child => child.parentId === a.id);
 
             if (children.length > 0) {
@@ -901,11 +883,11 @@ export class PlanningService {
                 let maxEnd: Date | null = null;
 
                 children.forEach(child => {
-                    const childStart = child.startDate ? new Date(child.startDate) : null;
-                    const childEnd = child.startDate ? new Date(new Date(child.startDate).getTime() + child.duration * 24 * 3600 * 1000) : null;
-                    // Use calculated dates if available (earlyStart/earlyFinish)
-                    const s = child.earlyStart ? new Date(child.earlyStart) : childStart;
-                    const e = child.earlyFinish ? new Date(child.earlyFinish) : childEnd;
+                    // Use calculated dates if available (earlyStart/earlyFinish), otherwise fallback to scheduled
+                    const s = child.earlyStart ? new Date(child.earlyStart) : (child.startDate ? new Date(child.startDate) : null);
+                    // For finish, we want the calculated finish date
+                    const cal = this.getCalendar(child.calendarId);
+                    const e = child.earlyFinish ? new Date(child.earlyFinish) : (child.startDate ? this.addWorkDays(new Date(child.startDate), child.duration, cal) : null);
 
                     if (s) {
                         if (!minStart || s < minStart) minStart = s;
@@ -918,19 +900,25 @@ export class PlanningService {
                 if (minStart && maxEnd) {
                     a.startDate = minStart!;
                     a.earlyStart = minStart!;
-                    a.earlyFinish = maxEnd!; // Summary finish needed?
+                    a.earlyFinish = maxEnd!;
+                    if (a.lateFinish && maxEnd > (a.lateFinish as any)) a.lateFinish = maxEnd; // Ensure container fits
 
+                    // Calculate Duration: (Finish - Start) 
+                    // Note: This is "Calendar Duration" effectively, or just simple envelope. 
+                    // In P6, WBS Duration is usually time-span. 
                     const diffTime = (maxEnd as Date).getTime() - (minStart as Date).getTime();
-                    a.duration = Math.ceil(diffTime / (1000 * 3600 * 24));
+                    a.duration = Math.ceil(diffTime / (1000 * 3600 * 24)); // Days approximation
 
-                    // Also rollup progress? (Weighted by duration)
-                    let totalDuration = 0;
-                    let weightedProgress = 0;
+                    // Rollup Progress (Weighted by Duration * Percent)
+                    // If Duration is 0 (milestones), we ignore for weighting usually? Or Count?
+                    let totalWeight = 0;
+                    let earnedWeight = 0;
                     children.forEach(c => {
-                        totalDuration += c.duration;
-                        weightedProgress += c.duration * c.percentComplete;
+                        const weight = c.duration > 0 ? c.duration : 1; // Default to 1 for milestones
+                        totalWeight += weight;
+                        earnedWeight += weight * (c.percentComplete || 0);
                     });
-                    a.percentComplete = totalDuration > 0 ? Math.round(weightedProgress / totalDuration) : 0;
+                    a.percentComplete = totalWeight > 0 ? Math.round(earnedWeight / totalWeight) : 0;
                 }
             }
         }
@@ -940,11 +928,14 @@ export class PlanningService {
     // Baseline Management
     assignBaseline() {
         this.state.update(current => {
-            const activities = current.activities.map(a => ({
-                ...a,
-                baselineStartDate: a.startDate ? new Date(a.startDate) : undefined,
-                baselineEndDate: a.startDate ? new Date(new Date(a.startDate).getTime() + (a.duration * 24 * 3600 * 1000)) : undefined
-            }));
+            const activities = current.activities.map(a => {
+                const cal = this.getCalendar(a.calendarId);
+                return {
+                    ...a,
+                    baselineStartDate: a.startDate ? new Date(a.startDate) : undefined,
+                    baselineEndDate: a.startDate ? this.addWorkDays(new Date(a.startDate), a.duration, cal) : undefined
+                };
+            });
             return { ...current, activities };
         });
         this.saveToHistory();
@@ -957,8 +948,8 @@ export class PlanningService {
         this.state.update(current => {
             const activities = current.activities.map(a => {
                 const start = new Date(a.startDate);
-                const end = new Date(start);
-                end.setDate(end.getDate() + a.duration);
+                const cal = this.getCalendar(a.calendarId);
+                const end = this.addWorkDays(start, a.duration, cal);
                 return {
                     ...a,
                     baselineStartDate: start,
@@ -1290,14 +1281,13 @@ export class PlanningService {
                         // Standard: Lag is on successor calendar (often). 
 
                         let potentialStart = new Date(sFinish);
-                        potentialStart.setDate(potentialStart.getDate() + 1); // Start of next day
 
                         // Ensure valid workday on TARGET calendar
                         while (!this.isWorkDay(potentialStart, calendar)) {
                             potentialStart.setDate(potentialStart.getDate() + 1);
                         }
                         // Add Lag
-                        potentialStart = this.addWorkDays(potentialStart, p.lag ? p.lag + 1 : 1, calendar);
+                        potentialStart = this.addWorkDays(potentialStart, p.lag || 0, calendar);
 
                         if (potentialStart > effectiveStart) effectiveStart = potentialStart;
                     }
@@ -1399,7 +1389,10 @@ export class PlanningService {
     }
 
     isParent(activityId: number): boolean {
-        return this.state().activities.some(a => a.parentId === activityId);
+        const activities = this.state().activities;
+        const act = activities.find(a => a.id == activityId);
+        if (act?.type === 'WBS') return true;
+        return activities.some(a => a.parentId == activityId);
     }
 
     // EVM Calculation

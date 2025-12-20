@@ -16,8 +16,27 @@ export class GanttChartToolBarComponent {
     selectedActivity = this.planningService.selectedActivity;
 
     onAdd() {
-        // Add activity at root level
-        this.planningService.addActivity(null);
+        const selected = this.selectedActivity();
+        let parentId: number | null = null;
+
+        if (selected) {
+            // If selecting a WBS, add as child. If selecting a Task, add as sibling.
+            parentId = (selected.type === 'WBS') ? selected.id : (selected.parentId || null);
+        }
+
+        this.planningService.addActivity(parentId, 'New Activity', false);
+    }
+
+    onAddWBS() {
+        const selected = this.selectedActivity();
+        let parentId: number | null = null;
+
+        if (selected) {
+            // If selecting a WBS, add as child. If selecting a Task, add as sibling.
+            parentId = (selected.type === 'WBS') ? selected.id : (selected.parentId || null);
+        }
+
+        this.planningService.addActivity(parentId, 'New WPS Node', true);
     }
 
     onDelete() {

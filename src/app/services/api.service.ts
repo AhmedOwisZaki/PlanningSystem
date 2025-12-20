@@ -94,6 +94,7 @@ export class ApiService {
                     startDate
                     endDate
                     defaultCalendarId
+                    isConstruction
                     activities {
                         id
                     }
@@ -132,6 +133,7 @@ export class ApiService {
                     startDate
                     endDate
                     defaultCalendarId
+                    isConstruction
                 }
                 epsNodes(where: { projectId: { eq: $id } }) {
                     id
@@ -159,6 +161,7 @@ export class ApiService {
                     startDate
                     endDate
                     defaultCalendarId
+                    isConstruction
                 }
                 activities(where: { projectId: { eq: $projectId } }) {
                     id
@@ -197,6 +200,7 @@ export class ApiService {
                     workHoursPerDay
                     description
                     holidays {
+                        name
                         date
                     }
                     workDays {
@@ -221,6 +225,7 @@ export class ApiService {
                     description
                     startDate
                     endDate
+                    isConstruction
                 }
             }
         `;
@@ -230,7 +235,8 @@ export class ApiService {
             startDate: project.startDate,
             endDate: project.endDate,
             defaultCalendarId: project.defaultCalendarId,
-            epsId: project.epsId
+            epsId: project.epsId,
+            isConstruction: project.isConstruction || false
         };
         return this.executeGraphQL(query, { input }).pipe(
             map(res => {
@@ -250,6 +256,7 @@ export class ApiService {
                     description
                     startDate
                     endDate
+                    isConstruction
                 }
             }
         `;
@@ -259,7 +266,8 @@ export class ApiService {
             description: project.description,
             startDate: project.startDate,
             endDate: project.endDate,
-            defaultCalendarId: project.defaultCalendarId
+            defaultCalendarId: project.defaultCalendarId,
+            isConstruction: project.isConstruction || false
         };
         return this.executeGraphQL(query, { input }).pipe(
             map(res => res.data.updateProject),
@@ -498,6 +506,14 @@ export class ApiService {
                     isDefault
                     workHoursPerDay
                     description
+                    holidays {
+                        name
+                        date
+                    }
+                    workDays {
+                        dayOfWeek
+                        isWorkDay
+                    }
                 }
             }
         `;
@@ -516,6 +532,14 @@ export class ApiService {
                     isDefault
                     workHoursPerDay
                     description
+                    holidays {
+                        name
+                        date
+                    }
+                    workDays {
+                        dayOfWeek
+                        isWorkDay
+                    }
                 }
             }
         `;
@@ -524,12 +548,25 @@ export class ApiService {
             isDefault: calendar.isDefault,
             workHoursPerDay: calendar.workHoursPerDay,
             description: calendar.description,
-            projectId: calendar.projectId
+            projectId: calendar.projectId,
+            workDays: calendar.workDays?.map((isWorkDay: boolean, index: number) => ({
+                dayOfWeek: this.getDayOfWeekName(index),
+                isWorkDay
+            })),
+            holidays: calendar.holidays?.map((h: any) => ({
+                name: 'Holiday',
+                date: h instanceof Date ? h.toISOString() : h
+            }))
         };
         return this.executeGraphQL(mutation, { input }).pipe(
             map(res => res.data.addCalendar),
             tap(data => console.log('Created calendar via GraphQL:', data))
         );
+    }
+
+    private getDayOfWeekName(index: number): string {
+        const days = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+        return days[index];
     }
 
     updateCalendar(id: number, calendar: any): Observable<any> {
@@ -541,6 +578,14 @@ export class ApiService {
                     isDefault
                     workHoursPerDay
                     description
+                    holidays {
+                        name
+                        date
+                    }
+                    workDays {
+                        dayOfWeek
+                        isWorkDay
+                    }
                 }
             }
         `;
@@ -549,7 +594,15 @@ export class ApiService {
             name: calendar.name,
             isDefault: calendar.isDefault,
             workHoursPerDay: calendar.workHoursPerDay,
-            description: calendar.description
+            description: calendar.description,
+            workDays: calendar.workDays?.map((isWorkDay: boolean, index: number) => ({
+                dayOfWeek: this.getDayOfWeekName(index),
+                isWorkDay
+            })),
+            holidays: calendar.holidays?.map((h: any) => ({
+                name: 'Holiday',
+                date: h instanceof Date ? h.toISOString() : h
+            }))
         };
         return this.executeGraphQL(mutation, { input }).pipe(
             map(res => res.data.updateCalendar),
@@ -616,7 +669,8 @@ export class ApiService {
             duration: activity.duration,
             projectId: activity.projectId,
             calendarId: activity.calendarId,
-            type: activity.type || 'Task'
+            type: activity.type || 'Task',
+            parentId: activity.parentId
         };
         return this.executeGraphQL(mutation, { input }).pipe(
             map(res => res.data.addActivity),
@@ -648,7 +702,8 @@ export class ApiService {
             duration: activity.duration,
             calendarId: activity.calendarId,
             type: activity.type || 'Task',
-            percentComplete: activity.percentComplete || 0
+            percentComplete: activity.percentComplete || 0,
+            parentId: activity.parentId
         };
         return this.executeGraphQL(mutation, { input }).pipe(
             map(res => res.data.updateActivity),

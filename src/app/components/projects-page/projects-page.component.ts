@@ -115,7 +115,8 @@ export class ProjectsPageComponent {
             name: 'New Project',
             description: '',
             startDate: today,
-            epsId: this.selectedEPSId
+            epsId: this.selectedEPSId,
+            isConstruction: false
         };
         this.showCreateModal = true;
     }
@@ -126,8 +127,8 @@ export class ProjectsPageComponent {
     selectedParentEPSId: string | null = null; // For adding child EPS
 
     // Project Form Data
-    editingProject: any = { name: '', description: '' };
-    newProjectData: any = { name: '', description: '', epsId: '' };
+    editingProject: any = { name: '', description: '', isConstruction: false };
+    newProjectData: any = { name: '', description: '', epsId: '', isConstruction: false };
     selectedProjectForAction: number | null = null;
 
     constructor(
@@ -266,7 +267,8 @@ export class ProjectsPageComponent {
         this.editingProject = {
             name: project.name,
             description: project.description,
-            startDate: formattedDate
+            startDate: formattedDate,
+            isConstruction: !!project.isConstruction
         };
         this.showEditModal = true;
     }
@@ -284,6 +286,7 @@ export class ProjectsPageComponent {
             name: this.editingProject.name,
             description: this.editingProject.description,
             startDate: new Date(this.editingProject.startDate).toISOString(),
+            isConstruction: this.editingProject.isConstruction,
             // Ensure we calculate/pass endDate as it's required by the UpdateProjectInput record
             endDate: new Date(new Date(this.editingProject.startDate).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
         };
