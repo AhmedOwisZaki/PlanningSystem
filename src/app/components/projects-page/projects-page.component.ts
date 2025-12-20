@@ -46,10 +46,30 @@ export class ProjectsPageComponent {
         const term = this.searchTerm().toLowerCase().trim();
         if (!term) return this.projects();
         return this.projects().filter(p =>
-            p.name.toLowerCase().includes(term) ||
+            (p.name && p.name.toLowerCase().includes(term)) ||
             (p.description && p.description.toLowerCase().includes(term))
         );
     });
+
+    // Helper to determine if an EPS node or its children have visible projects during search
+    hasVisibleContent(node: EPSNode): boolean {
+        const term = this.searchTerm().toLowerCase().trim();
+        if (!term) return true;
+
+        // If node itself matches (optional, but good for UX)
+        if (node.name.toLowerCase().includes(term)) return true;
+
+        // If any associated project matches
+        const hasMatchingProjects = this.getProjectsForEPS(node.id).length > 0;
+        if (hasMatchingProjects) return true;
+
+        // If any child has visible content
+        if (node.children && node.children.length > 0) {
+            return node.children.some(child => this.hasVisibleContent(child));
+        }
+
+        return false;
+    }
 
     // View State
     selectedEPSIdForCreate: string = '';

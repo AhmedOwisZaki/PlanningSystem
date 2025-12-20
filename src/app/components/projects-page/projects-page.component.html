@@ -22,7 +22,7 @@
         <div class="eps-container">
             <ng-template #epsNodeTemplate let-nodes>
                 @for (node of nodes; track node.id) {
-                <div class="eps-node">
+                <div class="eps-node" *ngIf="hasVisibleContent(node)">
                     <div class="eps-header" [class.selected]="selectedEPSId === node.id" (click)="selectEPS(node.id)"
                         (dragover)="onDragOver($event)" (drop)="onDrop($event, node.id)"
                         (dragenter)="onDragEnter($event)" (dragleave)="onDragLeave($event)">
@@ -43,7 +43,8 @@
                     </div>
 
                     <!-- Projects in this EPS Node -->
-                    <div class="projects-grid" *ngIf="!isCollapsed(node.id) && getProjectsForEPS(node.id).length > 0">
+                    <div class="projects-grid"
+                        *ngIf="(searchTerm() || !isCollapsed(node.id)) && getProjectsForEPS(node.id).length > 0">
                         @for (project of getProjectsForEPS(node.id); track project.id) {
                         <div class="project-card" (click)="openProject(project.id)" draggable="true"
                             (dragstart)="onDragStart($event, project)">
@@ -72,7 +73,7 @@
 
                     <!-- Child Nodes (Recursive) -->
                     <div class="eps-children"
-                        *ngIf="!isCollapsed(node.id) && node.children && node.children.length > 0">
+                        *ngIf="(searchTerm() || !isCollapsed(node.id)) && node.children && node.children.length > 0">
                         <ng-container
                             *ngTemplateOutlet="epsNodeTemplate; context:{$implicit: node.children}"></ng-container>
                     </div>
