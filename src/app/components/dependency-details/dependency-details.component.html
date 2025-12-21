@@ -1,0 +1,46 @@
+<div class="details-panel" *ngIf="selectedDependency()" [style.height.px]="panelHeight()">
+    <div class="resize-handle" (mousedown)="onResizeStart($event)"></div>
+
+    <div class="details-header">
+        <h3>Dependency Details</h3>
+        <div class="header-actions">
+            <button class="btn-delete" (click)="deleteDependency()" title="Delete Dependency">🗑️</button>
+            <button class="close-btn" (click)="closeDetails()">×</button>
+        </div>
+    </div>
+
+    <div class="details-content">
+        <div class="details-grid">
+            <div class="detail-item">
+                <label>From (Source):</label>
+                <span class="value">{{ getActivityName(selectedDependency()!.sourceId) }}</span>
+            </div>
+
+            <div class="detail-item">
+                <label>To (Target):</label>
+                <span class="value">{{ getActivityName(selectedDependency()!.targetId) }}</span>
+            </div>
+
+            <div class="detail-item">
+                <label>Relationship Type:</label>
+                <select [value]="selectedDependency()!.type" (change)="onTypeChange($event)" class="form-control">
+                    <option value="FS">Finish to Start (FS)</option>
+                    <option value="SS">Start to Start (SS)</option>
+                    <option value="FF">Finish to Finish (FF)</option>
+                    <option value="SF">Start to Finish (SF)</option>
+                </select>
+            </div>
+
+            <div class="detail-item">
+                <label>Lag (days):</label>
+                <input type="number" [value]="selectedDependency()!.lag || 0" (change)="onLagChange($event)"
+                    class="form-control" style="width: 80px;">
+            </div>
+
+            <div class="detail-item">
+                <label>Internal ID:</label>
+                <span class="value">{{ selectedDependency()!.id }}</span>
+            </div>
+        </div>
+    </div>
+</div>

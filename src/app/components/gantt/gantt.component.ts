@@ -6,11 +6,13 @@ import { ActivityDetailsComponent } from '../activity-details/activity-details.c
 import { EditorComponent } from '../editor/editor.component';
 import { ResourceUsageProfileComponent } from '../resource-usage-profile/resource-usage-profile.component';
 import { EVMDashboardComponent } from '../evm-dashboard/evm-dashboard.component';
+import { DependencyDetailsComponent } from '../dependency-details/dependency-details.component';
+import { SCurvesChartComponent } from '../s-curves-chart/s-curves-chart.component';
 
 @Component({
   selector: 'app-gantt',
   standalone: true,
-  imports: [CommonModule, FormsModule, ActivityDetailsComponent, EditorComponent, ResourceUsageProfileComponent, EVMDashboardComponent],
+  imports: [CommonModule, FormsModule, ActivityDetailsComponent, EditorComponent, ResourceUsageProfileComponent, EVMDashboardComponent, DependencyDetailsComponent, SCurvesChartComponent],
   templateUrl: './gantt.component.html',
   styleUrls: ['./gantt.component.scss']
 })
@@ -96,6 +98,8 @@ export class GanttComponent {
   projectStartDate = this.planningService.projectStartDate;
   projectEndDate = this.planningService.projectEndDate;
   projectState = this.planningService.state;
+  selectedActivity = this.planningService.selectedActivity;
+  selectedDependency = this.planningService.selectedDependency;
 
   // Resizable Panel State
   taskListWidth = signal(600);
@@ -123,6 +127,8 @@ export class GanttComponent {
 
   // Bottom Panel Tab State
   activeBottomTab = signal<'details' | 'usage'>('details');
+  isActivityDetailsVisible = signal(false);
+  isDependencyDetailsVisible = signal(false);
   // Scroll Sync State
   timelineScrollX = signal(0);
 
@@ -131,7 +137,9 @@ export class GanttComponent {
     const start = this.planningService.projectStartDate();
     const end = this.planningService.projectEndDate();
     const diffTime = Math.abs(end.getTime() - start.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 includes start day
+    // Add a generous buffer (2 years) so zooming out doesn't reveal white space on the right
+    const projectDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    return projectDays + 730;
   });
 
   timelineWidth = computed(() => this.totalDays() * this.dayWidth * this.zoomLevel());
@@ -182,11 +190,11 @@ export class GanttComponent {
 
   // Helper to position tasks
   getTaskLeft(activity: any): number {
-    const start = this.planningService.projectStartDate();
-    // Use earlyStart if available (calculated by schedule), fallback to manual startDate
+    const start = new Date(this.planningService.projectStartDate());
+    start.setHours(0, 0, 0, 0); // Normalize to midnight
     const actStart = activity.earlyStart ? new Date(activity.earlyStart) : new Date(activity.startDate);
     const diffTime = actStart.getTime() - start.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     return diffDays * this.dayWidth * this.zoomLevel();
   }
 
@@ -247,6 +255,14 @@ export class GanttComponent {
     return this.planningService.isParent(activity.id);
   }
 
+  getDisplayFinish(activity: any): Date | null {
+    const rawFinish = activity.lateFinish || activity.earlyFinish || activity.endDate;
+    if (!rawFinish) return null;
+    const d = new Date(rawFinish);
+    d.setDate(d.getDate() - 1);
+    return d;
+  }
+
   toggleActivity(activity: any, event: MouseEvent) {
     event.stopPropagation();
     this.planningService.toggleExpand(activity.id);
@@ -261,8 +277,8 @@ export class GanttComponent {
 
     // Color mapping by type
     const colorMap = {
-      'FS': '#f033f0ff', // Blue
-      'FF': '#51cf66', // Green
+      'FS': '#fc00fcff', // Black
+      'FF': '#01daf7ff', // Green
       'SS': '#ff6b6b', // Red
       'SF': '#fcc419'  // Yellow
     };
@@ -400,7 +416,7 @@ export class GanttComponent {
 
   // Floating Window State
   isFloatingWindowVisible = false;
-  floatingWindowType: 'resource' | 'evm' = 'resource';
+  floatingWindowType: 'resource' | 'evm' | 's-curve' = 'resource';
   floatingWindowResource: any = null;
   // Position is handled via CSS for "constant position"
 
@@ -408,7 +424,13 @@ export class GanttComponent {
     this.openFloatingWindow('resource', resource);
   }
 
+  onOpenSCurvesRequest() {
+    console.log('onOpenSCurvesRequest called - opening S-Curve window');
+    this.openFloatingWindow('s-curve');
+  }
+
   onBookIconClick() {
+    console.log('onBookIconClick called - opening EVM window');
     this.openFloatingWindow('evm');
   }
 
@@ -416,7 +438,7 @@ export class GanttComponent {
     this.isEditorVisible = true;
   }
 
-  private openFloatingWindow(type: 'resource' | 'evm', resource: any = null) {
+  private openFloatingWindow(type: 'resource' | 'evm' | 's-curve', resource: any = null) {
     this.floatingWindowType = type;
     this.floatingWindowResource = resource;
     this.isFloatingWindowVisible = true;
@@ -449,8 +471,6 @@ export class GanttComponent {
     this.isEditorVisible = false;
   }
 
-  // Selected activity for details panel (from service)
-  selectedActivity = this.planningService.selectedActivity;
 
   onSplitterMouseDown(event: MouseEvent) {
     event.preventDefault();
@@ -741,23 +761,46 @@ export class GanttComponent {
     return `${year}-${month}-${day}`;
   }
 
-  // Dependency Deletion
-  onLinkClick(linkId: number) {
+  // Dependency Interaction
+  onLinkClick(linkId: number, event: MouseEvent) {
+    event.stopPropagation();
+    const dep = this.planningService.dependencies().find(d => d.id === linkId);
+    if (dep) {
+      console.log('Dependency selected:', dep);
+      this.planningService.setSelectedDependency(dep);
+      this.isDependencyDetailsVisible.set(true);
+      this.isActivityDetailsVisible.set(false);
+    }
+  }
+
+  onLinkDoubleClick(linkId: number, event: MouseEvent) {
+    event.stopPropagation();
     if (confirm('Delete this dependency?')) {
       this.planningService.removeDependency(linkId);
+      if (this.planningService.selectedDependency()?.id === linkId) {
+        this.closeDependencyDetails();
+      }
     }
   }
 
   // Activity Selection for Details Panel
-  // Activity Selection for Details Panel
+  closeActivityDetails() {
+    this.isActivityDetailsVisible.set(false);
+    this.planningService.setSelectedActivity(null);
+  }
 
-  // Controls visibility of the bottom details panel
-  isActivityDetailsVisible = signal(false);
+  closeDependencyDetails() {
+    this.isDependencyDetailsVisible.set(false);
+    this.planningService.setSelectedDependency(null);
+  }
 
   onDeselect(event: MouseEvent) {
-    // If the click bubbled up to the container, deselect
-    console.log('Deselecting activity');
+    // If the click bubbled up to the container, deselect and close panels
+    console.log('Deselecting activity/dependency');
+    this.closeActivityDetails();
+    this.closeDependencyDetails();
     this.planningService.setSelectedActivity(null);
+    this.planningService.setSelectedDependency(null);
   }
 
   selectActivity(activity: any, event: MouseEvent) {
@@ -806,9 +849,6 @@ export class GanttComponent {
     }
   }
 
-  closeActivityDetails() {
-    this.isActivityDetailsVisible.set(false);
-  }
 
   // Synchronize scroll between task list and timeline
   // Synchronize scroll between task list and timeline

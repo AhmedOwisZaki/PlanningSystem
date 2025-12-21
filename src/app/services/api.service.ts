@@ -192,6 +192,10 @@ export class ApiService {
                     unit
                     costPerUnit
                     resourceTypeId
+                    isDailyBasedResource
+                    isHourlyBasedResource
+                    maxAvailabilityUnitsPerDay
+                    maxAvailabilityUnitsPerHour
                 }
                 calendars {
                     id
@@ -207,6 +211,12 @@ export class ApiService {
                         dayOfWeek
                         isWorkDay
                     }
+                }
+                resourceTypes {
+                    id
+                    name
+                    description
+                    projectId
                 }
             }
         `;
@@ -433,6 +443,79 @@ export class ApiService {
         );
     }
 
+    getResourceTypes(): Observable<any[]> {
+        const query = `
+            query {
+                resourceTypes {
+                    id
+                    name
+                    description
+                    projectId
+                }
+            }
+        `;
+        return this.executeGraphQL(query).pipe(
+            map(res => res.data.resourceTypes),
+            tap(data => console.log('Fetched resource types via GraphQL:', data))
+        );
+    }
+
+    createResourceType(resourceType: any): Observable<any> {
+        const mutation = `
+            mutation($input: CreateResourceTypeInput!) {
+                addResourceType(input: $input) {
+                    id
+                    name
+                    description
+                    projectId
+                }
+            }
+        `;
+        const input = {
+            name: resourceType.name,
+            description: resourceType.description || '',
+            projectId: resourceType.projectId
+        };
+        return this.executeGraphQL(mutation, { input }).pipe(
+            map(res => res.data.addResourceType),
+            tap(data => console.log('Created resource type via GraphQL:', data))
+        );
+    }
+
+    updateResourceType(id: number, resourceType: any): Observable<any> {
+        const mutation = `
+            mutation($input: UpdateResourceTypeInput!) {
+                updateResourceType(input: $input) {
+                    id
+                    name
+                    description
+                    projectId
+                }
+            }
+        `;
+        const input = {
+            id,
+            name: resourceType.name,
+            description: resourceType.description || ''
+        };
+        return this.executeGraphQL(mutation, { input }).pipe(
+            map(res => res.data.updateResourceType),
+            tap(data => console.log('Updated resource type via GraphQL:', data))
+        );
+    }
+
+    deleteResourceType(id: number): Observable<any> {
+        const mutation = `
+            mutation($id: Long!) {
+                deleteResourceType(id: $id)
+            }
+        `;
+        return this.executeGraphQL(mutation, { id }).pipe(
+            map(res => res.data.deleteResourceType),
+            tap(() => console.log('Deleted resource type via GraphQL:', id))
+        );
+    }
+
     createResource(resource: any): Observable<any> {
         const mutation = `
             mutation($input: CreateResourceInput!) {
@@ -442,6 +525,10 @@ export class ApiService {
                     unit
                     costPerUnit
                     resourceTypeId
+                    isDailyBasedResource
+                    isHourlyBasedResource
+                    maxAvailabilityUnitsPerDay
+                    maxAvailabilityUnitsPerHour
                 }
             }
         `;
@@ -450,7 +537,11 @@ export class ApiService {
             unit: resource.unit,
             costPerUnit: resource.costPerUnit,
             resourceTypeId: resource.resourceTypeId,
-            projectId: resource.projectId
+            projectId: resource.projectId,
+            isDailyBasedResource: !!resource.isDailyBasedResource,
+            isHourlyBasedResource: !!resource.isHourlyBasedResource,
+            maxAvailabilityUnitsPerDay: resource.maxAvailabilityUnitsPerDay ? Number(resource.maxAvailabilityUnitsPerDay) : null,
+            maxAvailabilityUnitsPerHour: resource.maxAvailabilityUnitsPerHour ? Number(resource.maxAvailabilityUnitsPerHour) : null
         };
         return this.executeGraphQL(mutation, { input }).pipe(
             map(res => res.data.addResource),
@@ -467,6 +558,10 @@ export class ApiService {
                     unit
                     costPerUnit
                     resourceTypeId
+                    isDailyBasedResource
+                    isHourlyBasedResource
+                    maxAvailabilityUnitsPerDay
+                    maxAvailabilityUnitsPerHour
                 }
             }
         `;
@@ -475,7 +570,11 @@ export class ApiService {
             name: resource.name,
             unit: resource.unit,
             costPerUnit: resource.costPerUnit,
-            resourceTypeId: resource.resourceTypeId
+            resourceTypeId: resource.resourceTypeId,
+            isDailyBasedResource: !!resource.isDailyBasedResource,
+            isHourlyBasedResource: !!resource.isHourlyBasedResource,
+            maxAvailabilityUnitsPerDay: resource.maxAvailabilityUnitsPerDay ? Number(resource.maxAvailabilityUnitsPerDay) : null,
+            maxAvailabilityUnitsPerHour: resource.maxAvailabilityUnitsPerHour ? Number(resource.maxAvailabilityUnitsPerHour) : null
         };
         return this.executeGraphQL(mutation, { input }).pipe(
             map(res => res.data.updateResource),

@@ -26,7 +26,7 @@ export class ResourceUsageProfileComponent implements OnChanges {
     // Style binding [style.transform] on bars-wrapper in HTML is cleanest (GPU accel).
 
     // Signal for aggregation
-    aggregatedData = signal<{ date: Date, total: number, limit: number, isOver: boolean }[]>([]);
+    aggregatedData = signal<{ date: Date, total: number, safeTotal: number, overTotal: number, limit: number, isOver: boolean }[]>([]);
 
     // Calculate max value for Y-axis scaling
     maxUsage = computed(() => {
@@ -60,9 +60,9 @@ export class ResourceUsageProfileComponent implements OnChanges {
         let limit = 0;
         if (this.selectedResourceId) {
             const res = resources.find(r => r.id === Number(this.selectedResourceId));
-            limit = res ? (res.limit || 0) : 0;
+            limit = res ? (Number(res.maxAvailabilityUnitsPerDay) || Number(res.limit) || 0) : 0;
         } else {
-            limit = resources.reduce((sum, r) => sum + (r.limit || 0), 0);
+            limit = resources.reduce((sum, r) => sum + (Number(r.maxAvailabilityUnitsPerDay) || Number(r.limit) || 0), 0);
         }
 
         // Map: DateStr -> Total Amount
@@ -81,13 +81,65 @@ export class ResourceUsageProfileComponent implements OnChanges {
 
                 const dateStr = current.toISOString().split('T')[0];
 
-                // Calculate daily total based on selection
+                // Calculate daily total based on selection (Distribute amount over duration)
+                const duration = act.duration > 0 ? act.duration : 1;
+
+                // Helper to check working days (Move this to class method if needed repeatedly)
+                // Assuming project calendars are available in this.projectState.calendars
+                const getCalendar = (act: any) => {
+                    const state = this.projectState; // Capture to local var for TS narrowing
+                    if (!state || !state.calendars) return null;
+
+                    if (act.calendarId) {
+                        return state.calendars.find(c => c.id === act.calendarId);
+                    }
+                    if (state.defaultCalendarId) {
+                        return state.calendars.find(c => c.id === state.defaultCalendarId);
+                    }
+                    return null;
+                };
+
+                const calendar = getCalendar(act);
+
+                const isWorkingDay = (d: Date, cal: any) => {
+                    if (!cal) return true; // Default to working if no calendar
+                    // Check Holidays
+                    if (cal.holidays && cal.holidays.some((h: any) => new Date(h).toDateString() === d.toDateString())) {
+                        return false;
+                    }
+                    // Check Weekend/WorkDays (0=Sun, 6=Sat)
+                    const day = d.getDay();
+                    // Cal.workDays is boolean array [Sun, Mon, ..., Sat]
+                    if (cal.workDays && !cal.workDays[day]) {
+                        return false;
+                    }
+                    return true;
+                };
+
+                // 1. Calculate Actual Working Days in range
+                let workingDaysCount = 0;
+                for (let k = 0; k < duration; k++) {
+                    const tempDate = new Date(act.startDate);
+                    tempDate.setDate(tempDate.getDate() + k);
+                    if (isWorkingDay(tempDate, calendar)) {
+                        workingDaysCount++;
+                    }
+                }
+
+                if (workingDaysCount === 0) workingDaysCount = duration; // Fallback to avoid division by zero
+
+                // 2. Distribute based on working days
                 let dailyTotal = 0;
-                if (this.selectedResourceId) {
-                    const items = act.resourceItems.filter(ri => ri.resourceId === Number(this.selectedResourceId));
-                    dailyTotal = items.reduce((acc, item) => acc + item.amount, 0);
+                if (isWorkingDay(current, calendar)) {
+                    if (this.selectedResourceId) {
+                        const items = act.resourceItems.filter(ri => ri.resourceId === Number(this.selectedResourceId));
+                        // Avoid division by zero if workingDaysCount is somehow 0 (fallback to duration was handled above)
+                        dailyTotal = items.reduce((acc, item) => acc + (item.amount / workingDaysCount), 0);
+                    } else {
+                        dailyTotal = act.resourceItems.reduce((acc, item) => acc + (item.amount / workingDaysCount), 0);
+                    }
                 } else {
-                    dailyTotal = act.resourceItems.reduce((acc, item) => acc + item.amount, 0);
+                    dailyTotal = 0;
                 }
 
                 usageMap.set(dateStr, (usageMap.get(dateStr) || 0) + dailyTotal);
@@ -104,9 +156,14 @@ export class ResourceUsageProfileComponent implements OnChanges {
             const dateStr = d.toISOString().split('T')[0];
             const total = usageMap.get(dateStr) || 0;
 
+            const safeTotal = Math.min(total, limit);
+            const overTotal = total > limit ? total - limit : 0;
+
             data.push({
                 date: d,
                 total: total,
+                safeTotal: safeTotal,
+                overTotal: overTotal,
                 limit: limit,
                 isOver: total > limit
             });

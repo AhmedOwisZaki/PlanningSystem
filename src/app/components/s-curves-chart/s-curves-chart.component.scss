@@ -61,6 +61,22 @@
     min-width: 80px;
 }
 
+.x-axis {
+    position: absolute;
+    bottom: -20px;
+    left: 0;
+    right: 80px; // Match y-axis width
+    height: 20px;
+}
+
+.x-label {
+    position: absolute;
+    transform: translateX(-50%);
+    font-size: 0.75rem;
+    color: #6c757d;
+    white-space: nowrap;
+}
+
 .legend {
     display: flex;
     gap: 1.5rem;

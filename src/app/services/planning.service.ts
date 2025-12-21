@@ -25,13 +25,13 @@ export class PlanningService {
     });
 
     // Selectors
-    activities = computed(() => this.state().activities);
-    dependencies = computed(() => this.state().dependencies);
-    resources = computed(() => this.state().resources);
+    activities = computed(() => this.state().activities || []);
+    dependencies = computed(() => this.state().dependencies || []);
+    resources = computed(() => this.state().resources || []);
     projectStartDate = computed(() => this.state().projectStartDate);
     projectEndDate = computed(() => this.state().projectEndDate);
 
-    resourceTypes = computed(() => this.state().resourceTypes);
+    resourceTypes = computed(() => this.state().resourceTypes || []);
     // Code Accessors
     activityCodeDefinitions = computed(() => this.state().activityCodeDefinitions || []);
 
@@ -40,6 +40,15 @@ export class PlanningService {
 
     setSelectedActivity(activity: Activity | null) {
         this.selectedActivity.set(activity);
+        if (activity) this.selectedDependency.set(null); // Deselect dependency if activity selected
+    }
+
+    // Selected Dependency
+    selectedDependency = signal<Dependency | null>(null);
+
+    setSelectedDependency(dependency: Dependency | null) {
+        this.selectedDependency.set(dependency);
+        if (dependency) this.selectedActivity.set(null); // Deselect activity if dependency selected
     }
 
     // Calendar Management
@@ -243,6 +252,7 @@ export class PlanningService {
                     dependencies: data.dependencies,
                     resources: data.resources,
                     calendars: data.calendars.map((c: any) => this.mapApiCalendar(c)),
+                    resourceTypes: data.resourceTypes || [],
                     activityCodeDefinitions: []
                 };
 
@@ -364,10 +374,9 @@ export class PlanningService {
     }
 
     addActivity(parentId: number | null = null, name: string = 'New Activity', isWBS: boolean = false) {
-        const startDate = new Date();
-        // Reset time to start of day for consistency? Or keep current time? 
-        // P6 usually defaults to start of work day (08:00). Let's just keep as is or clean it.
-        // For now, keep as is but ensures dates align.
+        const startDate = new Date(this.state().projectStartDate);
+        // Reset time to start of day for consistency or match project start exactly.
+        startDate.setHours(8, 0, 0, 0); // Default to standard start time
 
         const duration = isWBS ? 1 : 5; // Default WBS to 1 day if forced, or 0? user said "min start, max end". 
         // If WBS, duration is calculated. Start with 1? Or 0. 
@@ -511,7 +520,9 @@ export class PlanningService {
     }
 
     addResource(resource: any) {
-        // Resources are global usually, but let's assume we manage them here too
+        if (!resource.projectId) {
+            resource.projectId = this.state().projectId;
+        }
         this.apiService.createResource(resource).subscribe({
             next: (createdResource) => {
                 this.state.update(current => ({
@@ -521,6 +532,77 @@ export class PlanningService {
             },
             error: (err) => console.error('Failed to create resource:', err)
         });
+    }
+
+    deleteResource(id: number) {
+        this.apiService.deleteResource(id).subscribe({
+            next: (success) => {
+                if (success) {
+                    this.state.update(current => {
+                        const updatedResources = (current.resources || []).filter(r => r.id !== id);
+                        const updatedActivities = (current.activities || []).map(act => ({
+                            ...act,
+                            resourceItems: (act.resourceItems || []).filter((ri: any) => ri.resourceId !== id)
+                        }));
+                        return {
+                            ...current,
+                            resources: updatedResources,
+                            activities: updatedActivities
+                        };
+                    });
+                }
+            },
+            error: (err) => console.error('Failed to delete resource:', err)
+        });
+    }
+    updateResource(resource: any) {
+        this.apiService.updateResource(resource.id, resource).subscribe({
+            next: (updatedResource) => {
+                this.state.update(current => ({
+                    ...current,
+                    resources: (current.resources || []).map(r => r.id === updatedResource.id ? updatedResource : r)
+                }));
+            },
+            error: (err) => console.error('Failed to update resource:', err)
+        });
+    }
+
+    addResourceType(resourceType: any): Observable<any> {
+        if (!resourceType.projectId) {
+            resourceType.projectId = this.state().projectId;
+        }
+        return this.apiService.createResourceType(resourceType).pipe(
+            tap(created => {
+                this.state.update(current => ({
+                    ...current,
+                    resourceTypes: [...(current.resourceTypes || []), created]
+                }));
+            })
+        );
+    }
+
+    updateResourceType(resourceType: any): Observable<any> {
+        return this.apiService.updateResourceType(resourceType.id, resourceType).pipe(
+            tap(updated => {
+                this.state.update(current => ({
+                    ...current,
+                    resourceTypes: (current.resourceTypes || []).map(rt => rt.id === updated.id ? updated : rt)
+                }));
+            })
+        );
+    }
+
+    deleteResourceType(id: number): Observable<any> {
+        return this.apiService.deleteResourceType(id).pipe(
+            tap(() => {
+                this.state.update(current => ({
+                    ...current,
+                    resourceTypes: (current.resourceTypes || []).filter(rt => rt.id !== id),
+                    // Also consider if any resources use this type, maybe reset them?
+                    resources: (current.resources || []).map(r => r.resourceTypeId === id ? { ...r, resourceTypeId: 0 } : r)
+                }));
+            })
+        );
     }
 
     assignResourceToActivity(activityId: number, resourceId: number, amount: number) {
@@ -1400,37 +1482,69 @@ export class PlanningService {
     calculateEVM(statusDate?: Date): any {
         const dataDate = statusDate || new Date();
         const activities = this.activities();
+        const resources = this.resources();
+        const resMap = new Map(resources.map(r => [r.id, r]));
 
         let pv = 0, ev = 0, ac = 0;
+        const currentStatusDate = this.state().statusDate || new Date();
 
         activities.forEach(activity => {
-            // Use budgetAtCompletion if defined, otherwise fallback to duration as a simple cost unit
-            const bac = activity.budgetAtCompletion ?? activity.duration;
-            const actualCost = activity.actualCost ?? 0;
-            const percentComplete = activity.percentComplete ?? 0;
+            // Calculate BAC based on resources if not explicitly set
+            let bac = activity.budgetAtCompletion ?? 0;
+            if (bac === 0 && activity.resourceItems && activity.resourceItems.length > 0) {
+                activity.resourceItems.forEach((ri: any) => {
+                    const res = resMap.get(ri.resourceId);
+                    if (res) {
+                        bac += (ri.amount || 0) * (res.costPerUnit || 0);
+                    }
+                });
+            }
 
-            // Planned Value (PV) is the portion of BAC planned to be completed by dataDate
+            // Fallback to duration for visibility if no budget or resources
+            if (bac === 0) bac = activity.duration;
+
+            const currentEV = bac * ((activity.percentComplete ?? 0) / 100);
+            const currentAC = activity.actualCost ?? 0;
+            const calendar = this.getCalendar(activity.calendarId);
+
+            // 1. Planned Value (PV) - Calendar Aware
             if (activity.startDate <= dataDate) {
-                const activityEnd = new Date(activity.startDate);
-                activityEnd.setDate(activityEnd.getDate() + activity.duration);
+                let totalWorkDays = 0;
+                let passedWorkDays = 0;
 
-                if (activityEnd <= dataDate) {
-                    // Entire activity should be completed by dataDate
+                for (let i = 0; i < activity.duration; i++) {
+                    const d = new Date(activity.startDate);
+                    d.setDate(d.getDate() + i);
+                    if (this.isWorkDay(d, calendar)) {
+                        totalWorkDays++;
+                        if (d <= dataDate) {
+                            passedWorkDays++;
+                        }
+                    }
+                }
+
+                if (totalWorkDays > 0) {
+                    pv += bac * (passedWorkDays / totalWorkDays);
+                } else if (activity.duration === 0) {
                     pv += bac;
-                } else {
-                    // Partial progress based on elapsed time proportion
-                    const totalDuration = activity.duration;
-                    const elapsed = Math.floor((dataDate.getTime() - activity.startDate.getTime()) / (1000 * 60 * 60 * 24));
-                    const timeProportion = Math.min(elapsed / totalDuration, 1);
-                    pv += bac * timeProportion;
                 }
             }
 
-            // Earned Value (EV) based on actual percent complete
-            ev += bac * (percentComplete / 100);
+            // 2. Earned Value (EV) & Actual Cost (AC) - Interpolated Trends
+            if (dataDate <= activity.startDate) {
+                ev += 0;
+                ac += 0;
+            } else if (dataDate >= currentStatusDate) {
+                ev += currentEV;
+                ac += currentAC;
+            } else {
+                const totalRange = currentStatusDate.getTime() - activity.startDate.getTime();
+                const elapsed = dataDate.getTime() - activity.startDate.getTime();
 
-            // Actual Cost (AC)
-            ac += actualCost;
+                const factor = totalRange > 0 ? elapsed / totalRange : 1;
+                ev += currentEV * factor;
+                ac += currentAC * factor;
+            }
         });
 
         const sv = ev - pv;
@@ -1438,7 +1552,19 @@ export class PlanningService {
         const spi = pv > 0 ? ev / pv : 0;
         const cpi = ac > 0 ? ev / ac : 0;
 
-        const totalBAC = activities.reduce((sum, a) => sum + (a.budgetAtCompletion ?? a.duration), 0);
+        // Recalculate totalBAC using the same logic for consistency
+        const totalBAC = activities.reduce((sum, activity) => {
+            let abac = activity.budgetAtCompletion ?? 0;
+            if (abac === 0 && activity.resourceItems && activity.resourceItems.length > 0) {
+                activity.resourceItems.forEach((ri: any) => {
+                    const res = resMap.get(ri.resourceId);
+                    if (res) abac += (ri.amount || 0) * (res.costPerUnit || 0);
+                });
+            }
+            if (abac === 0) abac = activity.duration;
+            return sum + abac;
+        }, 0);
+
         const eac = cpi > 0 ? totalBAC / cpi : totalBAC;
         const etc = eac - ac;
         const vac = totalBAC - eac;

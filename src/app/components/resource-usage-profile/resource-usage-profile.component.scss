@@ -53,16 +53,23 @@
 
 .bar-column {
     position: absolute;
+    top: 0;
     bottom: 0;
-    height: 100%;
     border-right: 1px solid #f1f1f1;
-    /* Match Gantt grid */
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+}
+
+.bar-chart-surface {
+    flex: 1;
+    position: relative;
     display: flex;
     align-items: flex-end;
-    /* Bottom align bars */
     justify-content: center;
-    padding: 0 2px 35px 2px;
-    /* Pad bottom for labels */
+    padding: 0 2px;
+    margin-bottom: 35px;
+    /* Axis labels space */
 }
 
 .date-label {
@@ -90,35 +97,51 @@
     z-index: 5;
 }
 
+.bar-chart-surface:hover .tooltip {
+    opacity: 1;
+    visibility: visible;
+}
+
 .bar-fill {
     width: 80%;
-    background: #4dabf7;
-    /* Blue for safe */
-    border-radius: 2px 2px 0 0;
-    position: relative;
+    position: absolute;
+    left: 10%;
     transition: height 0.3s ease;
-    min-height: 1px;
-    /* Always show something if 0? No */
 
-    &.over-limit {
-        background: #fa5252;
-        /* Red for over */
+    &.base {
+        background: #4dabf7;
+        border-radius: 2px 2px 0 0;
+        z-index: 1;
     }
 
-    &:hover .tooltip {
-        opacity: 1;
-        visibility: visible;
+    &.over {
+        background: #fa5252;
+        border-radius: 2px 2px 0 0;
+        z-index: 2;
     }
 }
 
 .limit-marker {
     position: absolute;
     width: 100%;
-    height: 2px;
-    background: #000;
-    opacity: 0.3;
+    border-top: 2px dashed #fa5252;
+    height: 0;
+    left: 0;
+    opacity: 0.8;
     pointer-events: none;
     z-index: 10;
+
+    .limit-val {
+        position: absolute;
+        right: 100%;
+        top: -10px;
+        margin-right: 4px;
+        font-size: 0.65rem;
+        color: #fa5252;
+        background: white;
+        padding: 0 2px;
+        font-weight: bold;
+    }
 }
 
 .tooltip {

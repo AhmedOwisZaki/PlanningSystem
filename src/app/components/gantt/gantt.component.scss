@@ -198,9 +198,12 @@
   }
 
   &.wbs-row .col-name {
-    overflow: visible;
-    text-overflow: clip;
+    overflow: hidden !important;
+    /* WAS visible, changed to hidden to force ellipsis */
+    text-overflow: ellipsis !important;
+    /* WAS clip */
     white-space: nowrap !important;
+    display: block !important;
     z-index: 10;
   }
 
@@ -222,6 +225,8 @@
 
   .col-name {
     font-weight: 700;
+    white-space: nowrap !important;
+    /* Force single line */
   }
 
   &.wbs-root {
@@ -386,26 +391,29 @@
   /* Remove centering transform */
   height: 16px;
   /* Thinner P6 style */
-  background: #339af0;
+  background: #40c057;
+  /* Green for non-critical */
   border-radius: 2px;
+  border: 1px solid #000;
+  /* Black border */
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(51, 154, 240, 0.3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow: visible;
 
   &:hover {
-    background: #228be6;
+    background: #37b24d;
   }
 
   &.selected {
-    background: #1971c2 !important;
-    box-shadow: 0 4px 8px rgba(194, 25, 25, 0.5);
+    background: #2b8a3e !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     z-index: 10;
-    outline: 2px solid #ab1818;
+    outline: 2px solid #000;
   }
 
   &.critical {
     background: #FF0000 !important;
-    border: 1px solid #cc0000;
+    border: 1px solid #000;
   }
 }
 
@@ -415,7 +423,8 @@
   height: 14px;
   background: #343a40;
   transform: rotate(45deg);
-  border: 1px solid #212529;
+  border: 1px solid #000;
+  /* Black border */
   cursor: pointer;
   z-index: 5;
 
@@ -430,12 +439,12 @@
 
   &.selected {
     background: #1971c2;
-    border-color: #ab1818;
+    border-color: #000;
   }
 
   &.critical {
     background: #FF0000 !important;
-    border-color: #cc0000;
+    border-color: #000;
   }
 
   .task-label {
@@ -569,6 +578,9 @@
   opacity: 1 !important;
   visibility: visible !important;
 
+  white-space: nowrap !important;
+
+  /* Force single line always */
   /* Remove tooltip arrow */
   &::after {
     display: none !important;
@@ -626,10 +638,17 @@
   pointer-events: stroke;
   cursor: pointer;
   stroke-linecap: round;
+  transition: stroke-width 0.1s, opacity 0.1s;
 
-  &:hover {
-    stroke-width: 4;
-    opacity: 0.8;
+  &:hover,
+  &.selected {
+    stroke-width: 3.5;
+    opacity: 1;
+  }
+
+  &.selected {
+    stroke-dasharray: none;
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.3));
   }
 }
 
@@ -846,7 +865,8 @@
 .parent-task-bar {
   background: linear-gradient(to bottom, #495057 0%, #343a40 100%) !important;
   height: 5px !important;
-  border: 1px solid #212529;
+  border: 1px solid #000;
+  /* Black border */
   border-radius: 2px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   position: relative;

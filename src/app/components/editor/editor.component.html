@@ -73,32 +73,72 @@
             <!-- Header with Actions -->
             <div class="resources-header" (click)="$event.stopPropagation()">
                 <div class="header-left">
-                    <h3>All Resources</h3>
+                    <button class="btn-profile" (click)="isManagingResourceTypes.set(false)"
+                        [class.active]="!isManagingResourceTypes()">
+                        📦 All Resources
+                    </button>
                     <button class="btn-profile" [disabled]="!selectedResource()" [class.active]="selectedResource()"
                         (click)="openProfile($event)">
                         Show resource usage profile
+                    </button>
+                    <button class="btn-profile btn-manage-types" (click)="toggleManageResourceTypes()"
+                        [class.active]="isManagingResourceTypes()">
+                        🏷️ Manage types
                     </button>
                 </div>
                 <button class="btn-add" (click)="startAddResource()" *ngIf="!showAddResourceForm">+</button>
             </div>
 
             <!-- Add Resource Form -->
-            <div class="add-resource-form" *ngIf="showAddResourceForm" (click)="$event.stopPropagation()">
-                <h4>New Resource</h4>
+            <div class="add-resource-form" *ngIf="showAddResourceForm">
+                <h5 class="form-title">{{ newResource.id ? 'Edit Resource' : 'Add New Resource' }}</h5>
                 <div class="form-row">
-                    <input type="text" [(ngModel)]="newResource.name" placeholder="Resource Name" class="form-control"
+                    <label>Name <span class="hint">(e.g., Senior Architect, Excavator)</span></label>
+                    <input type="text" [(ngModel)]="newResource.name" class="form-control" placeholder="Resource Name"
                         autofocus>
                 </div>
                 <div class="form-row">
+                    <span class="field-hint">Resource category/type</span>
                     <select [(ngModel)]="newResource.resourceTypeId" class="form-control">
-                        <option *ngFor="let type of resourceTypes()" [value]="type.id">{{ type.name }}</option>
+                        <option *ngFor="let type of (resourceTypes() || [])" [ngValue]="type.id">{{ type.name }}
+                        </option>
                     </select>
                 </div>
                 <div class="form-row" style="display: flex; gap: 10px;">
-                    <input type="number" [(ngModel)]="newResource.costPerUnit" placeholder="Cost" class="form-control"
-                        style="width: 80px;">
-                    <input type="text" [(ngModel)]="newResource.unit" placeholder="Unit (e.g. hour)"
-                        class="form-control">
+                    <div style="flex: 1;">
+                        <span class="field-hint">Rate per unit</span>
+                        <input type="number" [(ngModel)]="newResource.costPerUnit" placeholder="e.g. 50.00"
+                            class="form-control">
+                    </div>
+                    <div style="flex: 1;">
+                        <span class="field-hint">UOM (e.g. hr, ton)</span>
+                        <input type="text" [(ngModel)]="newResource.unit" placeholder="e.g. hour" class="form-control">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <span class="field-hint">Select how this resource is managed</span>
+                    <div style="display: flex; gap: 20px; align-items: center; margin-top: 5px;">
+                        <label
+                            style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 0.9rem;">
+                            <input type="radio" name="baseType" [(ngModel)]="resourceBaseType" value="daily"> Daily
+                        </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 0.9rem;">
+                            <input type="radio" name="baseType" [(ngModel)]="resourceBaseType" value="hourly"> Hourly
+                        </label>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div *ngIf="resourceBaseType === 'daily'">
+                        <span class="field-hint">Max units available per day</span>
+                        <input type="number" [(ngModel)]="newResource.maxAvailabilityUnitsPerDay" class="form-control"
+                            placeholder="e.g. 8">
+                    </div>
+                    <div *ngIf="resourceBaseType === 'hourly'">
+                        <span class="field-hint">Max units available per hour</span>
+                        <input type="number" [(ngModel)]="newResource.maxAvailabilityUnitsPerHour" class="form-control"
+                            placeholder="e.g. 1">
+                    </div>
                 </div>
                 <div class="form-actions">
                     <button (click)="cancelAddResource()" class="btn-cancel">Cancel</button>
@@ -106,8 +146,56 @@
                 </div>
             </div>
 
+            <!-- Resource Type Management Pane -->
+            <div class="resource-types-editor" *ngIf="isManagingResourceTypes()" (click)="$event.stopPropagation()">
+                <div class="feature-header">
+                    <h4>Resource Types</h4>
+                    <button class="btn-add-small" (click)="startAddResourceType()"
+                        *ngIf="!editingResourceType()">+</button>
+                </div>
+
+                <!-- List of Types -->
+                <div class="types-list" *ngIf="!editingResourceType()">
+                    <div class="type-item-card" *ngFor="let type of (resourceTypes() || [])">
+                        <div class="type-info">
+                            <span class="type-name">{{ type.name }}</span>
+                            <span class="type-desc" *ngIf="type.description">{{ type.description }}</span>
+                        </div>
+                        <div class="type-actions">
+                            <button class="btn-icon edit" (click)="editResourceType(type)">✎</button>
+                            <button class="btn-icon delete" (click)="deleteResourceType(type.id)"
+                                [disabled]="type.id <= 3">🗑️</button>
+                        </div>
+                    </div>
+                    <div class="no-data" *ngIf="(resourceTypes() || []).length === 0">No custom types defined</div>
+                </div>
+
+                <!-- Edit/Add Type Form -->
+                <div class="type-edit-form" *ngIf="editingResourceType()">
+                    <h5>{{ editingResourceType().id === 0 ? 'Add New Type' : 'Edit Type' }}</h5>
+                    <div class="form-row">
+                        <label>Name</label>
+                        <input type="text" [(ngModel)]="editingResourceType().name" class="form-control"
+                            placeholder="Type Name">
+                    </div>
+                    <div class="form-row">
+                        <label>Description</label>
+                        <textarea [(ngModel)]="editingResourceType().description" class="form-control"
+                            placeholder="Description"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button (click)="cancelEditResourceType()" class="btn-cancel">Cancel</button>
+                        <button (click)="saveResourceType()" class="btn-save"
+                            [disabled]="isSaving() || !editingResourceType().name">
+                            {{ isSaving() ? 'Saving...' : 'Save' }}
+                        </button>
+                    </div>
+                    <div *ngIf="saveError()" class="error-text">{{ saveError() }}</div>
+                </div>
+            </div>
+
             <!-- Resource List (No Side Panel) -->
-            <div class="resource-categories">
+            <div class="resource-categories" *ngIf="!isManagingResourceTypes()">
                 <div class="category-group" *ngFor="let group of resourcesByType()">
 
                     <!-- Category Header -->
@@ -121,14 +209,25 @@
 
                     <!-- Resource List -->
                     <div class="resource-list" *ngIf="isCategoryExpanded(group.id)">
-                        <div class="resource-item" *ngFor="let res of group.resources"
-                            [class.selected]="selectedResource() === res" (click)="selectResource(res, $event)">
-                            <div class="res-name">{{ res.name }}</div>
-                            <div class="res-cost">{{ res.costPerUnit | currency }} / {{ res.unit }}</div>
+                        <div class="resource-item" *ngFor="let resource of group.resources"
+                            (click)="selectResource(resource, $event)" (dblclick)="editResource(resource)"
+                            [class.selected]="selectedResource()?.id === resource.id">
+                            <div class="res-info">
+                                <span class="res-name">{{ resource.name+' '+' '+' ' }}</span>
+                                <span class="res-sub">{{ resource.costPerUnit }}$/{{ resource.unit
+                                    }}</span>
+                            </div>
+                            <div class="actions">
+                                <button class="btn-icon delete-stylish" (click)="deleteResource(resource, $event)"
+                                    title="Delete Resource">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                        <path
+                                            d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
-                        <div class="no-resources" *ngIf="group.resources.length === 0">
-                            No resources
-                        </div>
+                        <div class="no-data" *ngIf="group.resources.length === 0">No resources</div>
                     </div>
                 </div>
             </div>

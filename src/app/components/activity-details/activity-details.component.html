@@ -18,7 +18,7 @@
     <div class="details-content" *ngIf="activeTab() === 'general'">
         <div class="detail-item">
             <label>Name:</label>
-            <input type="text" [value]="selectedActivity()!.name" (change)="onNameChange($event)">
+            <input type="text" [value]="selectedActivity()!.name" (change)="onNameChange($event)" class="form-control">
         </div>
         <div class="detail-item">
             <label>Type:</label>
@@ -43,7 +43,9 @@
         </div>
         <div class="detail-item">
             <label>Duration:</label>
-            <span>{{ selectedActivity()!.duration }} days</span>
+            <input type="number" [value]="selectedActivity()!.duration" (change)="onDurationChange($event)" min="1"
+                class="form-control" style="width: 80px;">
+            <span style="margin-left: 5px;">days</span>
         </div>
         <div class="detail-item">
             <label>End Date:</label>

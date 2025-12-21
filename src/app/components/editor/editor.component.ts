@@ -1,4 +1,4 @@
-import { Component, inject, computed, signal, Output, EventEmitter } from '@angular/core';
+import { Component, inject, computed, signal, Output, EventEmitter, HostListener, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PlanningService } from '../../services/planning.service';
@@ -16,6 +16,7 @@ import { SCurvesChartComponent } from '../s-curves-chart/s-curves-chart.componen
 export class EditorComponent {
     planningService = inject(PlanningService);
     xerExporter = inject(XerExporterService);
+    el = inject(ElementRef);
 
     activeTab: 'project' | 'resources' | 'calendars' | 'codes' = 'resources';
     resources = this.planningService.resources;
@@ -68,12 +69,33 @@ export class EditorComponent {
         costPerUnit: 0,
         resourceTypeId: 1
     };
+    resourceBaseType: 'daily' | 'hourly' = 'hourly';
 
     expandedCategories = signal<Set<number>>(new Set([1, 2, 3]));
     selectedResource = signal<Resource | null>(null);
     showProfile = signal(false);
 
+    // Resource Type management
+    isManagingResourceTypes = signal(false);
+    editingResourceType = signal<any | null>(null);
+    newResourceTypeData = { name: '', description: '' };
+
     @Output() requestOpenProfile = new EventEmitter<Resource>();
+    @Output() requestOpenSCurves = new EventEmitter<void>();
+
+    @HostListener('document:click', ['$event'])
+    onDocumentClick(event: MouseEvent) {
+        if (!this.isManagingResourceTypes()) return;
+
+        const target = event.target as HTMLElement;
+        const clickedInside = this.el.nativeElement.querySelector('.resource-types-editor')?.contains(target);
+        const clickedToggleButton = target.closest('.btn-manage-types');
+
+        if (!clickedInside && !clickedToggleButton) {
+            this.isManagingResourceTypes.set(false);
+            this.editingResourceType.set(null);
+        }
+    }
 
     toggleTab(tab: 'project' | 'resources' | 'calendars' | 'codes') {
         this.activeTab = tab;
@@ -125,7 +147,19 @@ export class EditorComponent {
     }
 
     startAddResource() {
-        this.newResource = { name: '', unit: 'hour', costPerUnit: 0, resourceTypeId: 1 };
+        const types = this.resourceTypes();
+        const firstTypeId = types && types.length > 0 ? types[0].id : 1;
+        this.resourceBaseType = 'hourly';
+        this.newResource = {
+            name: '',
+            unit: 'hour',
+            costPerUnit: 0,
+            resourceTypeId: firstTypeId,
+            isDailyBasedResource: false,
+            isHourlyBasedResource: true,
+            maxAvailabilityUnitsPerDay: 8,
+            maxAvailabilityUnitsPerHour: 1
+        };
         this.showAddResourceForm = true;
     }
 
@@ -133,10 +167,94 @@ export class EditorComponent {
         this.showAddResourceForm = false;
     }
 
+    editResource(resource: Resource) {
+        this.newResource = {
+            ...resource,
+            projectId: resource.projectId || this.planningService.state().projectId
+        };
+        // Determine base type logic for radio
+        if (this.newResource.isDailyBasedResource) {
+            this.resourceBaseType = 'daily';
+        } else {
+            this.resourceBaseType = 'hourly';
+        }
+        this.showAddResourceForm = true;
+    }
+
     saveNewResource() {
         if (this.newResource.name && this.newResource.resourceTypeId) {
-            this.planningService.addResource(this.newResource);
+            if (!this.newResource.projectId) {
+                this.newResource.projectId = this.planningService.state().projectId;
+            }
+
+            // Sync boolean flags with radio selection
+            this.newResource.isDailyBasedResource = this.resourceBaseType === 'daily';
+            this.newResource.isHourlyBasedResource = this.resourceBaseType === 'hourly';
+
+            // Ensure numbers are numbers
+            if (this.newResource.maxAvailabilityUnitsPerDay) this.newResource.maxAvailabilityUnitsPerDay = Number(this.newResource.maxAvailabilityUnitsPerDay);
+            if (this.newResource.maxAvailabilityUnitsPerHour) this.newResource.maxAvailabilityUnitsPerHour = Number(this.newResource.maxAvailabilityUnitsPerHour);
+
+            if (this.newResource.id) {
+                this.planningService.updateResource(this.newResource);
+            } else {
+                this.planningService.addResource(this.newResource);
+            }
             this.showAddResourceForm = false;
+        }
+    }
+
+    deleteResource(resource: Resource, event: MouseEvent) {
+        event.stopPropagation();
+        if (confirm(`Are you sure you want to delete resource "${resource.name}"? This will also remove it from all activity assignments.`)) {
+            this.planningService.deleteResource(resource.id);
+        }
+    }
+
+    // Resource Type management methods
+    toggleManageResourceTypes() {
+        this.isManagingResourceTypes.set(!this.isManagingResourceTypes());
+        this.editingResourceType.set(null);
+    }
+
+    startAddResourceType() {
+        this.editingResourceType.set({ id: 0, name: '', description: '', projectId: this.planningService.state().projectId });
+    }
+
+    editResourceType(type: any) {
+        this.editingResourceType.set({ ...type });
+    }
+
+    cancelEditResourceType() {
+        this.editingResourceType.set(null);
+    }
+
+    saveResourceType() {
+        const type = this.editingResourceType();
+        if (!type || !type.name) return;
+
+        this.isSaving.set(true);
+        const obs = type.id === 0
+            ? this.planningService.addResourceType(type)
+            : this.planningService.updateResourceType(type);
+
+        obs.subscribe({
+            next: () => {
+                this.isSaving.set(false);
+                this.editingResourceType.set(null);
+            },
+            error: (err) => {
+                this.isSaving.set(false);
+                this.saveError.set(err.message || 'Failed to save resource type.');
+            }
+        });
+    }
+
+    deleteResourceType(id: number) {
+        if (confirm('Are you sure you want to delete this resource type? Resources of this type will be unassigned.')) {
+            this.planningService.deleteResourceType(id).subscribe({
+                error: (err) => alert(err.message || 'Failed to delete resource type.')
+            });
         }
     }
 
@@ -153,7 +271,8 @@ export class EditorComponent {
     }
 
     openSCurves() {
-        this.showSCurves.set(true);
+        console.log('openSCurves called - requesting floating window');
+        this.requestOpenSCurves.emit();
     }
 
     closeSCurves() {

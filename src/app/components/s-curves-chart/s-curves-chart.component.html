@@ -26,6 +26,13 @@
             <span>{{ formatCurrency(maxValue() * 0.25) }}</span>
             <span>$0</span>
         </div>
+
+        <!-- X-axis labels -->
+        <div class="x-axis">
+            <div class="x-label" *ngFor="let label of xAxisLabels()" [style.left.%]="label.left">
+                {{ label.text }}
+            </div>
+        </div>
     </div>
 
     <!-- Legend -->

@@ -14,16 +14,25 @@
             <div class="bar-column" *ngFor="let day of aggregatedData(); let i = index" [style.left.px]="getLeft(i)"
                 [style.width.px]="dayWidth * zoomLevel">
 
-                <!-- Limit Line (if we want to draw it per bar) -->
-                <!-- Better: The bar itself -->
-                <div class="bar-fill" [style.height.%]="getBarHeight(day.total)" [class.over-limit]="day.isOver">
-                    <span class="tooltip">
-                        {{ day.date | date:'shortDate' }}: {{ day.total }} / {{ day.limit }}
-                    </span>
-                </div>
+                <div class="bar-chart-surface">
+                    <!-- Bar Fill: Safe Part -->
+                    <div class="bar-fill base" [style.height.%]="getBarHeight(day.safeTotal)">
+                    </div>
 
-                <!-- Limit Marker -->
-                <div class="limit-marker" [style.bottom.%]="getBarHeight(day.limit)">
+                    <!-- Bar Fill: Over Part -->
+                    <div class="bar-fill over" *ngIf="day.overTotal > 0" [style.height.%]="getBarHeight(day.overTotal)"
+                        [style.bottom.%]="getBarHeight(day.limit)">
+                    </div>
+
+                    <!-- Common Tooltip: Positioned at total height -->
+                    <span class="tooltip" [style.bottom.%]="getBarHeight(day.total)">
+                        {{ day.date | date:'shortDate' }}: {{ day.total | number:'1.1-2' }} / {{ day.limit }}
+                    </span>
+
+                    <!-- Limit Marker -->
+                    <div class="limit-marker" [style.bottom.%]="getBarHeight(day.limit)">
+                        <span class="limit-val" *ngIf="i === 0">{{ day.limit }}</span>
+                    </div>
                 </div>
 
                 <!-- X Axis Date Label -->

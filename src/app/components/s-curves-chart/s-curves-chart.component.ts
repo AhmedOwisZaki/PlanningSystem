@@ -17,10 +17,10 @@ export class SCurvesChartComponent {
         const startDate = state.projectStartDate;
         const endDate = state.projectEndDate;
 
-        // Generate time-phased data (weekly intervals)
+        // Generate time-phased data (daily intervals)
         const data: any[] = [];
         const currentDate = new Date(startDate);
-        const weekMs = 7 * 24 * 60 * 60 * 1000;
+        const dayMs = 24 * 60 * 60 * 1000;
 
         let cumulativePV = 0;
         let cumulativeEV = 0;
@@ -36,10 +36,37 @@ export class SCurvesChartComponent {
                 ac: evm.ac
             });
 
-            currentDate.setTime(currentDate.getTime() + weekMs);
+            currentDate.setTime(currentDate.getTime() + dayMs);
         }
 
         return data;
+    });
+
+    xAxisLabels = computed(() => {
+        const data = this.chartData();
+        if (data.length === 0) return [];
+
+        // Pick ~5 labels to avoid crowding
+        const labels: any[] = [];
+        const step = Math.max(1, Math.floor(data.length / 4));
+
+        for (let i = 0; i < data.length; i += step) {
+            labels.push({
+                text: this.formatDate(data[i].date),
+                left: this.getX(i)
+            });
+        }
+
+        // Always include last date if not already there
+        const lastIdx = data.length - 1;
+        if (labels.length > 0 && labels[labels.length - 1].left < 100) {
+            labels.push({
+                text: this.formatDate(data[lastIdx].date),
+                left: 100
+            });
+        }
+
+        return labels;
     });
 
     maxValue = computed(() => {

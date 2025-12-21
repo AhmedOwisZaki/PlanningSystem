@@ -57,8 +57,15 @@ export class ActivityDetailsComponent implements OnDestroy {
 
     onNameChange(event: Event) {
         const value = (event.target as HTMLInputElement).value;
-        if (this.selectedActivity()) {
+        if (this.selectedActivity() && value.trim()) {
             this.planningService.updateActivity({ ...this.selectedActivity()!, name: value });
+        }
+    }
+
+    onDurationChange(event: Event) {
+        const value = parseInt((event.target as HTMLInputElement).value, 10);
+        if (this.selectedActivity() && !isNaN(value) && value > 0) {
+            this.planningService.updateActivity({ ...this.selectedActivity()!, duration: value });
         }
     }
 
@@ -133,13 +140,24 @@ export class ActivityDetailsComponent implements OnDestroy {
 
     saveResourceAssignment() {
         const activity = this.selectedActivity();
-        if (activity && this.newAssignment.resourceId && this.newAssignment.amount > 0) {
+        console.log('Saving resource assignment:', {
+            activityId: activity?.id,
+            resourceId: this.newAssignment.resourceId,
+            amount: this.newAssignment.amount
+        });
+        if (activity && this.newAssignment.resourceId !== null && this.newAssignment.amount > 0) {
             this.planningService.assignResourceToActivity(
                 activity.id,
                 this.newAssignment.resourceId,
                 this.newAssignment.amount
             );
             this.isAssigningResource = false;
+        } else {
+            console.warn('Assignment validation failed:', {
+                hasActivity: !!activity,
+                resourceId: this.newAssignment.resourceId,
+                amount: this.newAssignment.amount
+            });
         }
     }
 

@@ -16,7 +16,8 @@
 
     <!-- Editor Panel Container -->
     <div class="editor-panel-container" *ngIf="isEditorVisible">
-        <app-editor (requestOpenProfile)="onOpenProfileRequest($event)"></app-editor>
+        <app-editor (requestOpenProfile)="onOpenProfileRequest($event)"
+            (requestOpenSCurves)="onOpenSCurvesRequest()"></app-editor>
     </div>
 
     <!-- EVM Dashboard (Hidden, moved to floating window) -->
@@ -29,6 +30,7 @@
             <h3 style="margin: 0;" *ngIf="floatingWindowType === 'resource'">Usage Profile: {{
                 floatingWindowResource?.name || 'Total Project' }}</h3>
             <h3 style="margin: 0;" *ngIf="floatingWindowType === 'evm'">Earned Value Management (EVM)</h3>
+            <h3 style="margin: 0;" *ngIf="floatingWindowType === 's-curve'">S-Curves - EVM Trend Analysis</h3>
 
             <div class="window-controls" (mousedown)="$event.stopPropagation()">
                 <div class="zoom-controls" *ngIf="floatingWindowType === 'resource'"
@@ -50,6 +52,9 @@
 
             <app-evm-dashboard *ngIf="floatingWindowType === 'evm'"
                 style="flex: 1; width: 100%; height: 100%; overflow: hidden;"></app-evm-dashboard>
+
+            <app-s-curves-chart *ngIf="floatingWindowType === 's-curve'"
+                style="flex: 1; width: 100%; height: 100%; overflow: hidden;"></app-s-curves-chart>
         </div>
     </div>
 
@@ -119,7 +124,7 @@
                     <div class="grid-col col-date" [style.width.px]="colDateWidth()">{{ activity.startDate |
                         date:'dd-MMM-yy' }}</div>
                     <div class="grid-col col-date" [style.width.px]="colDateWidth()">
-                        {{ (activity.lateFinish || activity.earlyFinish || activity.endDate) | date:'dd-MMM-yy' }}
+                        {{ getDisplayFinish(activity) | date:'dd-MMM-yy' }}
                     </div>
                     <div class="grid-col col-float" [style.width.px]="colFloatWidth()"
                         [style.color]="(activity.totalFloat || 0) <= 0 ? 'red' : 'black'">
@@ -172,11 +177,11 @@
                                 <!-- Start Circle Markers -->
                                 <marker id="circleFS" markerWidth="6" markerHeight="6" refX="3" refY="3"
                                     markerUnits="userSpaceOnUse">
-                                    <circle cx="3" cy="3" r="3" fill="#f033f0ff" />
+                                    <circle cx="3" cy="3" r="3" fill="#fc00fcff" />
                                 </marker>
                                 <marker id="circleFF" markerWidth="6" markerHeight="6" refX="3" refY="3"
                                     markerUnits="userSpaceOnUse">
-                                    <circle cx="3" cy="3" r="3" fill="#51cf66" />
+                                    <circle cx="3" cy="3" r="3" fill="#01daf7ff" />
                                 </marker>
                                 <marker id="circleSS" markerWidth="6" markerHeight="6" refX="3" refY="3"
                                     markerUnits="userSpaceOnUse">
@@ -190,11 +195,11 @@
                                 <!-- End Arrow Markers -->
                                 <marker id="arrowFS" markerWidth="15" markerHeight="10" refX="0" refY="4" leading="auto"
                                     markerUnits="userSpaceOnUse">
-                                    <path d="M0,0 L0,8 L14,4 z" fill="#f033f0ff" />
+                                    <path d="M0,0 L0,8 L14,4 z" fill="#fc00fcff" />
                                 </marker>
                                 <marker id="arrowFF" markerWidth="15" markerHeight="10" refX="0" refY="4" orient="auto"
                                     markerUnits="userSpaceOnUse">
-                                    <path d="M0,0 L0,8 L14,4 z" fill="#51cf66" />
+                                    <path d="M0,0 L0,8 L14,4 z" fill="#01daf7ff" />
                                 </marker>
                                 <marker id="arrowSS" markerWidth="15" markerHeight="10" refX="0" refY="4" orient="auto"
                                     markerUnits="userSpaceOnUse">
@@ -209,12 +214,14 @@
                             <path *ngFor="let link of dependencyLines()" [attr.d]="link.path" [attr.stroke]="link.color"
                                 [attr.marker-start]="'url(#circle' + link.type + ')'"
                                 [attr.marker-end]="'url(#arrow' + link.type + ')'" fill="none" class="link-path"
-                                (click)="onLinkClick(link.id)" [attr.data-link-id]="link.id" [attr.title]="link.type" />
+                                [class.selected]="selectedDependency()?.id === link.id"
+                                (click)="onLinkClick(link.id, $event)" (dblclick)="onLinkDoubleClick(link.id, $event)"
+                                [attr.data-link-id]="link.id" [attr.title]="link.type" />
 
                             <!-- Creating Link (Temp Line) -->
                             <line *ngIf="isLinking && tempLinkEnd" [attr.x1]="tempLinkStart.x"
                                 [attr.y1]="tempLinkStart.y" [attr.x2]="tempLinkEnd.x" [attr.y2]="tempLinkEnd.y"
-                                class="link-drag-line" />
+                                class="link-drag-line" style="pointer-events: none;" />
                         </svg>
 
                         <div class="task-bar-wrapper" *ngFor="let activity of visibleActivities(); let i = index"
@@ -299,10 +306,13 @@
         </div>
     </div>
 
-    <!-- Bottom Panel (Tabs) -->
-    <div class="bottom-panel" *ngIf="isActivityDetailsVisible() && selectedActivity()">
+    <div class="bottom-panel"
+        *ngIf="(isActivityDetailsVisible() && selectedActivity()) || (isDependencyDetailsVisible() && selectedDependency())">
         <div class="bottom-panel-content">
-            <app-activity-details (close)="closeActivityDetails()"></app-activity-details>
+            <app-activity-details *ngIf="isActivityDetailsVisible() && selectedActivity()"
+                (close)="closeActivityDetails()"></app-activity-details>
+            <app-dependency-details *ngIf="isDependencyDetailsVisible() && selectedDependency()"
+                (close)="closeDependencyDetails()"></app-dependency-details>
         </div>
     </div>
 

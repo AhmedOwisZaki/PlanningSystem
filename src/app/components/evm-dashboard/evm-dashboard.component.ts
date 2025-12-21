@@ -2,10 +2,12 @@ import { Component, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PlanningService } from '../../services/planning.service';
 
+import { SCurvesChartComponent } from '../s-curves-chart/s-curves-chart.component';
+
 @Component({
     selector: 'app-evm-dashboard',
     standalone: true,
-    imports: [CommonModule],
+    imports: [CommonModule, SCurvesChartComponent],
     templateUrl: './evm-dashboard.component.html',
     styleUrl: './evm-dashboard.component.scss'
 })

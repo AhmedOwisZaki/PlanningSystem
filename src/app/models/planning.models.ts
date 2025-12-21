@@ -54,12 +54,18 @@ export interface Resource {
     costPerUnit: number;
     resourceTypeId: number;
     limit?: number; // Max units available per day
+    projectId?: number;
+    isDailyBasedResource?: boolean;
+    isHourlyBasedResource?: boolean;
+    maxAvailabilityUnitsPerDay?: number;
+    maxAvailabilityUnitsPerHour?: number;
 }
 
 export interface ResourceType {
     id: number;
     name: string;
     description: string;
+    projectId?: number;
 }
 
 export interface Calendar {
