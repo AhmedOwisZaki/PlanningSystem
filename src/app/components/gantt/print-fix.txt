@@ -1,0 +1,18 @@
+  .window-content {
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+    flex: 1 !important;
+    padding: 1rem !important;
+  }
+
+  /* Force Chart Dimensions */
+  app-resource-usage-profile,
+  app-s-curves-chart,
+  app-evm-dashboard {
+    display: block !important;
+    width: 100% !important;
+    min-height: 600px !important;
+    overflow: visible !important;
+  }
+}

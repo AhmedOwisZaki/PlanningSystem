@@ -36,116 +36,168 @@ export class XerParserService {
         if (projects.length === 0) return null;
 
         const proj = projects[0];
-        // P6 Dates often string: "2025-01-01 00:00"
         const projectStartDate = this.parseDate(proj['plan_start_date']);
         const projectEndDate = this.parseDate(proj['plan_end_date']) || new Date(projectStartDate.getTime() + 30 * 24 * 3600 * 1000);
 
-        // Extract WBS Hierarchy (PROJWBS)
-        const wbsNodes = tables['PROJWBS'] || [];
-        const wbsMap = new Map<string, any>();
-        const wbsToActivityId = new Map<string, number>();
+        // ID Mapping: P6 ID (string) -> Synthetic ID (number)
+        const idMap = new Map<string, number>();
+        let nextSyntheticId = 1;
 
-        // Build WBS map
+        const allActivities: Activity[] = [];
+
+        // 1. Process WBS Hierarchy (PROJWBS)
+        const wbsNodes = tables['PROJWBS'] || [];
+        // Sort by wbs_id to effectively process top-down if IDs are increasing?? No, P6 WBS IDs are random.
+        // We can just process them. Parent resolution happens later if we need strict tree, but for list it's fine.
+        // Wait, for parentId resolution, we need the parent to have an ID.
+        // If we map ALL first, then resolve parents, it's safer.
+
+        // Pass 1.1: Map all WBS IDs
         wbsNodes.forEach(wbs => {
-            wbsMap.set(wbs['wbs_id'], wbs);
+            const syntheticId = nextSyntheticId++;
+            idMap.set(wbs['wbs_id'], syntheticId);
         });
 
-        // Create WBS activities (summary tasks)
-        let activityIdCounter = 100000; // Start high to avoid conflicts with task IDs
-        const wbsActivities: Activity[] = [];
-
+        // Pass 1.2: Create WBS Activities
         wbsNodes.forEach(wbs => {
-            const activityId = activityIdCounter++;
-            wbsToActivityId.set(wbs['wbs_id'], activityId);
+            const syntheticId = idMap.get(wbs['wbs_id'])!;
+            const parentP6Id = wbs['parent_wbs_id'];
+            let parentId: number | null = null;
 
-            // Find parent WBS
-            const parentWbsId = wbs['parent_wbs_id'];
-            let parentActivityId: number | null = null;
-
-            if (parentWbsId && wbsToActivityId.has(parentWbsId)) {
-                parentActivityId = wbsToActivityId.get(parentWbsId)!;
+            if (parentP6Id && idMap.has(parentP6Id)) {
+                parentId = idMap.get(parentP6Id)!;
             }
 
-            wbsActivities.push({
-                id: activityId,
+            allActivities.push({
+                id: syntheticId,
                 name: wbs['wbs_short_name'] || wbs['wbs_name'] || 'WBS Node',
                 startDate: projectStartDate,
-                duration: 0, // Will be calculated by rollup
+                duration: 0,
                 percentComplete: 0,
-                parentId: parentActivityId,
-                type: 'Task',
+                parentId: parentId,
+                type: 'WBS', // Explicitly 'WBS' type
                 isExpanded: true
             } as Activity);
         });
 
-        // Extract Activities (TASK)
+        // 2. Process Activities (TASK)
         const tasks = tables['TASK'] || [];
-        const activities: Activity[] = tasks.map(t => {
+
+        // Pass 2.1: Map all Task IDs
+        tasks.forEach(t => {
+            const syntheticId = nextSyntheticId++;
+            idMap.set(t['task_id'], syntheticId);
+        });
+
+        // Pass 2.2: Create Task Activities
+        tasks.forEach(t => {
+            const syntheticId = idMap.get(t['task_id'])!;
             const startDate = this.parseDate(t['target_start_date']) || projectStartDate;
             const endDate = this.parseDate(t['target_end_date']) || startDate;
 
-            // Duration in P6 is mostly calculated or stored as hours? 
-            // Often 'target_durn_qty' (planned duration). P6 durations are usually hours * 10? No, usually hours.
-            // Let's infer duration from dates for simplicity if field ambiguous, or look for 'target_durn_qty'.
-            // Simple approach: Date diff
+            // Duration
             const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
             let duration = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            if (duration === 0) duration = 1; // Minimum
+            if (duration === 0) duration = 1;
 
-            // Determine Type
+            // Type
             let type: any = 'Task';
             if (t['task_type'] === 'TT_FinMile') type = 'FinishMilestone';
-            if (t['task_type'] === 'TT_Mile') type = 'StartMilestone'; // Check P6 enums
+            if (t['task_type'] === 'TT_Mile') type = 'StartMilestone';
 
-            // Find parent WBS
-            const taskWbsId = t['wbs_id'];
-            let parentActivityId: number | null = null;
-
-            if (taskWbsId && wbsToActivityId.has(taskWbsId)) {
-                parentActivityId = wbsToActivityId.get(taskWbsId)!;
+            // Parent (WBS)
+            const wbsP6Id = t['wbs_id'];
+            let parentId: number | null = null;
+            if (wbsP6Id && idMap.has(wbsP6Id)) {
+                parentId = idMap.get(wbsP6Id)!;
             }
 
-            return {
-                id: parseInt(t['task_id']),
+            allActivities.push({
+                id: syntheticId,
                 name: t['task_name'],
                 startDate: startDate,
                 duration: duration,
                 percentComplete: parseInt(t['phys_complete_pct']) || 0,
                 type: type,
-                parentId: parentActivityId
-            } as Activity;
+                parentId: parentId
+            } as Activity);
         });
 
-        // Combine WBS activities and task activities
-        const allActivities = [...wbsActivities, ...activities];
-
-        // Extract Relationships (TASKPRED)
+        // 3. Process Relationships (TASKPRED)
         const preds = tables['TASKPRED'] || [];
-        const dependencies: Dependency[] = preds.map((p, index) => {
-            let type: any = 'FS';
-            if (p['pred_type'] === 'PR_FS') type = 'FS';
-            if (p['pred_type'] === 'PR_SS') type = 'SS';
-            if (p['pred_type'] === 'PR_FF') type = 'FF';
-            if (p['pred_type'] === 'PR_SF') type = 'SF';
+        const dependencies: Dependency[] = [];
 
-            return {
-                id: index + 1000,
-                sourceId: parseInt(p['pred_task_id']),
-                targetId: parseInt(p['task_id']),
-                type: type,
-                lag: parseInt(p['lag_durn_qty']) || 0 // Assuming basic unit
-            };
+        preds.forEach((p, index) => {
+            const sourceP6Id = p['pred_task_id'];
+            const targetP6Id = p['task_id'];
+
+            if (idMap.has(sourceP6Id) && idMap.has(targetP6Id)) {
+                let type: any = 'FS';
+                if (p['pred_type'] === 'PR_FS') type = 'FS';
+                if (p['pred_type'] === 'PR_SS') type = 'SS';
+                if (p['pred_type'] === 'PR_FF') type = 'FF';
+                if (p['pred_type'] === 'PR_SF') type = 'SF';
+
+                dependencies.push({
+                    id: index + 10000,
+                    sourceId: idMap.get(sourceP6Id)!,
+                    targetId: idMap.get(targetP6Id)!,
+                    type: type,
+                    lag: parseInt(p['lag_durn_qty']) || 0
+                });
+            }
         });
 
-        // Hierarchy (PROJWBS) - Optional for now, flattened list
-        // If we want WBS, we need PROJWBS table mapping wbs_id to parent_wbs_id 
-        // and link TASK.wbs_id to PROJWBS.
+        // 4. Process Resources (RSRC)
+        const rsrcTable = tables['RSRC'] || [];
+        const resources: any[] = [];
+        const rsrcMap = new Map<string, number>();
+        let nextResourceId = 1;
+
+        rsrcTable.forEach(r => {
+            const synId = nextResourceId++;
+            rsrcMap.set(r['rsrc_id'], synId);
+
+            resources.push({
+                id: synId,
+                name: r['rsrc_short_name'] || r['rsrc_name'],
+                unit: r['unit_id'] || 'hr',
+                costPerUnit: 0, // Simplified
+                resourceTypeId: 1
+            });
+        });
+
+        // 5. Process Assignments (TASKRSRC)
+        const taskRsrcTable = tables['TASKRSRC'] || [];
+        taskRsrcTable.forEach((tr, index) => {
+            const p6TaskId = tr['task_id'];
+            const p6RsrcId = tr['rsrc_id'];
+            const amount = parseFloat(tr['target_qty']) || 0;
+
+            if (idMap.has(p6TaskId) && rsrcMap.has(p6RsrcId)) {
+                const activityId = idMap.get(p6TaskId)!;
+                const resourceId = rsrcMap.get(p6RsrcId)!;
+
+                // Attach to activity
+                const activity = allActivities.find(a => a.id === activityId);
+                if (activity) {
+                    if (!activity.resourceItems) activity.resourceItems = [];
+                    activity.resourceItems.push({
+                        id: index + 1,
+                        activityId: activityId,
+                        resourceId: resourceId,
+                        amount: amount
+                    });
+                }
+            }
+        });
 
         return {
             projectStartDate,
             projectEndDate,
             activities: allActivities,
             dependencies,
+            resources: resources,
             projectName: proj['proj_short_name'] || proj['proj_name'] || 'Imported Project',
             projectDescription: proj['proj_name'] || 'Imported from Primavera P6'
         };
@@ -153,7 +205,6 @@ export class XerParserService {
 
     private parseDate(dateStr: string): Date {
         if (!dateStr) return new Date();
-        // Handle P6 date format if weird, usually YYYY-MM-DD
         return new Date(dateStr);
     }
 }

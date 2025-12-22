@@ -65,7 +65,7 @@
     position: absolute;
     bottom: -20px;
     left: 0;
-    right: 80px; // Match y-axis width
+    right: 80px;
     height: 20px;
 }
 
@@ -131,4 +131,148 @@
     font-size: 1.25rem;
     font-weight: 700;
     color: #212529;
+}
+
+/* Print Styles */
+@media print {
+    .s-curves-container {
+        page-break-inside: avoid;
+        background: white !important;
+        padding: 2rem !important;
+        width: 100% !important;
+    }
+
+    h3 {
+        color: #000 !important;
+        font-size: 1.5rem !important;
+        margin-bottom: 2rem !important;
+    }
+
+    .chart-wrapper {
+        height: 600px !important;
+        width: 100% !important;
+        page-break-inside: avoid;
+        margin-bottom: 3rem !important;
+        display: flex !important;
+        position: relative !important;
+    }
+
+    .chart-svg {
+        width: 100% !important;
+        height: 100% !important;
+        background: white !important;
+        border: 2px solid #000 !important;
+        display: block !important;
+    }
+
+    .line {
+        stroke-width: 4 !important;
+        fill: none !important;
+    }
+
+    .pv-line {
+        stroke: #000 !important;
+        stroke-dasharray: 10, 5 !important;
+        stroke-width: 4 !important;
+    }
+
+    .ev-line {
+        stroke: #000 !important;
+        stroke-width: 4 !important;
+    }
+
+    .ac-line {
+        stroke: #000 !important;
+        stroke-dasharray: 3, 3 !important;
+        stroke-width: 4 !important;
+    }
+
+    .grid-line {
+        stroke: #999 !important;
+        stroke-width: 1 !important;
+        stroke-dasharray: 2, 2 !important;
+    }
+
+    .y-axis {
+        display: flex !important;
+        font-size: 1rem !important;
+        color: #000 !important;
+        padding-left: 1rem !important;
+        min-width: 100px !important;
+    }
+
+    .x-axis {
+        display: block !important;
+        position: absolute !important;
+        bottom: -30px !important;
+        height: 30px !important;
+    }
+
+    .x-label {
+        font-size: 1rem !important;
+        color: #000 !important;
+    }
+
+    .legend {
+        display: flex !important;
+        gap: 2rem !important;
+        margin-bottom: 2rem !important;
+        page-break-inside: avoid;
+    }
+
+    .legend-item {
+        display: flex !important;
+        align-items: center !important;
+        font-size: 1.1rem !important;
+        color: #000 !important;
+    }
+
+    .legend-color {
+        width: 40px !important;
+        height: 5px !important;
+        border: 1px solid #000 !important;
+
+        &.pv {
+            background: #000 !important;
+        }
+
+        &.ev {
+            background: #000 !important;
+        }
+
+        &.ac {
+            background: #000 !important;
+        }
+    }
+
+    .current-values {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 1.5rem !important;
+        page-break-inside: avoid;
+    }
+
+    .value-card {
+        background: #f0f0f0 !important;
+        border: 1px solid #000 !important;
+        padding: 1.5rem !important;
+    }
+
+    .value-label {
+        font-size: 1rem !important;
+        color: #000 !important;
+        font-weight: bold !important;
+    }
+
+    .value-amount {
+        font-size: 1.5rem !important;
+        color: #000 !important;
+    }
+
+    /* Force colors and visibility */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
 }

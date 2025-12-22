@@ -751,24 +751,145 @@
 .settings-gear {
   position: absolute;
   top: 10px;
-  right: 15px;
-  z-index: 1000;
+  right: 10px;
+  width: 28px;
+  height: 28px;
   cursor: pointer;
+  z-index: 1000;
   color: #6c757d;
-  transition: color 0.2s, transform 0.2s;
-  background: rgba(255, 255, 255, 0.8);
-  border-radius: 50%;
-  padding: 4px;
+  transition: color 0.2s ease;
 
   &:hover {
-    color: #339af0;
-    transform: rotate(90deg);
+    color: #495057;
   }
 
   svg {
-    display: block;
+    width: 100%;
+    height: 100%;
   }
 }
+
+/* Floating Toolbar Wrapper (Green Gear) */
+/* Floating Toolbar Wrapper (Green Gear) */
+.gantt-toolbar-wrapper {
+  position: absolute;
+  top: 6px;
+  z-index: 500;
+  pointer-events: auto;
+  transition: left 0.1s ease-out;
+
+  /* Container structure */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.toolbar-trigger {
+  width: 28px;
+  height: 28px;
+  color: #fff;
+  cursor: pointer;
+  background: #2f9e44;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  border: 1px solid #2b8a3e;
+  transition: all 0.2s ease;
+  z-index: 502;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover {
+    background: #2b8a3e;
+    transform: rotate(45deg);
+  }
+}
+
+.toolbar-dropdown {
+  position: absolute;
+  top: 36px;
+  left: 0;
+  background: white;
+  border: 1px solid #ced4da;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 0.5rem;
+  width: 200px;
+  display: none;
+  /* Hidden by default */
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 501;
+  pointer-events: none;
+
+  &.visible {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 10px;
+    width: 12px;
+    height: 12px;
+    background: white;
+    border-top: 1px solid #dee2e6;
+    border-left: 1px solid #dee2e6;
+    transform: rotate(45deg);
+  }
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 4px;
+  color: #495057;
+  font-size: 0.9rem;
+  transition: background 0.1s;
+
+  &:hover {
+    background: #f1f3f5;
+    color: #212529;
+  }
+
+  .icon {
+    width: 24px;
+    display: flex;
+    justify-content: center;
+    margin-right: 10px;
+    font-weight: bold;
+    font-size: 1.1em;
+  }
+
+  .label {
+    flex: 1;
+  }
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: #e9ecef;
+  margin: 4px 0;
+}
+
+
+
 
 /* Editor Backdrop */
 .editor-backdrop {
@@ -1267,7 +1388,6 @@
   @page {
     margin: 0.5cm;
     size: landscape;
-    /* Optional: suggest landscape */
   }
 
   /* Force background colors */
@@ -1276,48 +1396,70 @@
     print-color-adjust: exact !important;
   }
 
-  /* Hide Gantt UI elements */
-  .task-list-panel,
-  .timeline-panel,
-  .settings-gear,
-  .floating-book-icon,
-  .task-list-header {
+  /* Hide EVERYTHING except floating window */
+  body>* {
     display: none !important;
   }
 
-  .gantt-container {
-    box-shadow: none;
-    border: none;
-    height: auto;
-    overflow: visible;
+  body>app-root {
+    display: block !important;
   }
 
-  /* Focus on Floating Window */
+  app-root>* {
+    display: none !important;
+  }
+
+  app-root>div {
+    display: block !important;
+  }
+
+  app-root>div>* {
+    display: none !important;
+  }
+
+  app-root>div>main {
+    display: block !important;
+  }
+
+  app-root>div>main>* {
+    display: none !important;
+  }
+
+  app-root>div>main>app-gantt {
+    display: block !important;
+  }
+
+  app-gantt>* {
+    display: none !important;
+  }
+
+  /* Show ONLY the floating window */
   .floating-window.printable-modal {
+    display: flex !important;
     position: absolute !important;
-    /* Changed from fixed to absolute */
     top: 0 !important;
     left: 0 !important;
     width: 100% !important;
     height: auto !important;
-    /* Allow expansion */
     min-height: 100vh !important;
     transform: none !important;
     box-shadow: none !important;
     border: none !important;
     background: white !important;
     z-index: 10000 !important;
-    display: block !important;
-    /* Flex can be tricky in print */
+    flex-direction: column !important;
   }
 
   .window-header {
-    background: transparent !important;
+    background: white !important;
     border-bottom: 2px solid #333 !important;
     margin-bottom: 20px;
+    padding: 1rem !important;
+    display: flex !important;
 
     h3 {
       color: black !important;
+      font-size: 1.5rem !important;
     }
 
     .window-controls {
@@ -1327,30 +1469,32 @@
 
   .window-content {
     display: block !important;
-    /* Remove flex */
+    overflow: visible !important;
     height: auto !important;
-    overflow: visible !important;
-  }
-
-  /* Force Chart Dimensions */
-  app-resource-usage-profile {
-    display: block !important;
-    width: 100% !important;
-    height: 600px !important;
-    /* Explicit height to prevent collapse */
-    page-break-inside: avoid;
-  }
-
-  /* Deep selector to ensure profile internals render */
-  app-resource-usage-profile .profile-container {
-    height: 600px !important;
-  }
-
-  app-resource-usage-profile .chart-area {
-    overflow: visible !important;
-    /* Show all horizontal content */
+    flex: 1 !important;
+    padding: 1rem !important;
   }
 }
+
+/* Force Chart Dimensions */
+app-resource-usage-profile {
+  display: block !important;
+  width: 100% !important;
+  height: 600px !important;
+  /* Explicit height to prevent collapse */
+  page-break-inside: avoid;
+}
+
+/* Deep selector to ensure profile internals render */
+app-resource-usage-profile .profile-container {
+  height: 600px !important;
+}
+
+app-resource-usage-profile .chart-area {
+  overflow: visible !important;
+  /* Show all horizontal content */
+}
+
 
 /* Ensure app root doesn't constrain */
 app-root,

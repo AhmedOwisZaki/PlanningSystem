@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PlanningService } from '../../services/planning.service';
@@ -32,6 +32,56 @@ export class GanttComponent {
     'rgba(255, 248, 225, 0.5)', // Light Amber
     'rgba(236, 239, 241, 0.5)'  // Light Blue Grey
   ];
+
+  /* Toolbar Methods */
+  onAdd() {
+    const selected = this.selectedActivity();
+    let parentId: number | null = null;
+    if (selected) {
+      // If selecting a WBS, add as child. If selecting a Task, add as sibling.
+      parentId = (selected.type === 'WBS') ? selected.id : (selected.parentId || null);
+    }
+    this.planningService.addActivity(parentId, 'New Activity', false);
+  }
+
+  onAddWBS() {
+    const selected = this.selectedActivity();
+    let parentId: number | null = null;
+    if (selected) {
+      // If selecting a WBS, add as child. If selecting a Task, add as sibling.
+      parentId = (selected.type === 'WBS') ? selected.id : (selected.parentId || null);
+    }
+    this.planningService.addActivity(parentId, 'New WPS Node', true);
+  }
+
+  onDelete() {
+    const activity = this.selectedActivity();
+    if (activity) {
+      if (confirm('Are you sure you want to delete this activity?')) {
+        this.planningService.deleteActivity(activity.id);
+        this.planningService.setSelectedActivity(null);
+      }
+    } else {
+      alert('Please select an activity in the Gantt chart first, then click delete.');
+    }
+  }
+
+  onSchedule() {
+    this.planningService.scheduleProject();
+  }
+
+  onBaseline(event: MouseEvent) {
+    if (event.shiftKey) {
+      this.planningService.clearBaseline();
+    } else {
+      this.planningService.createBaseline();
+    }
+  }
+
+  onLevel(event: MouseEvent) {
+    this.planningService.levelResources();
+  }
+
 
   getRowStyle(activity: any) {
     const backgroundColor = this.getPhaseColor(activity);
@@ -412,6 +462,22 @@ export class GanttComponent {
     // Clear any close timer
     if (this.sideWindowHoverTimer) clearTimeout(this.sideWindowHoverTimer);
     this.isSideWindowVisible = true;
+  }
+
+  /* Toolbar State */
+  isToolbarOpen = false;
+
+  toggleToolbar(event: MouseEvent) {
+    event.stopPropagation();
+    this.isToolbarOpen = !this.isToolbarOpen;
+  }
+
+  // Close toolbar when clicking anywhere else
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent) {
+    if (this.isToolbarOpen) {
+      this.isToolbarOpen = false;
+    }
   }
 
   // Floating Window State

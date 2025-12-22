@@ -345,23 +345,74 @@ export class ProjectsPageComponent {
         if (!input.files || input.files.length === 0) return;
 
         const file = input.files[0];
+        const reader = new FileReader();
 
-        this.apiService.importXER(file).subscribe({
-            next: (importedProject) => {
-                const newProject = {
-                    ...importedProject,
-                    startDate: new Date(importedProject.startDate),
-                    endDate: new Date(importedProject.endDate)
-                };
-                this.projects.update(projects => [...projects, newProject]);
-                this.planningService.loadProjectState(importedProject);
-                this.router.navigate(['/planning']);
-            },
-            error: (error) => {
-                console.error('Failed to import XER file:', error);
-                alert('Failed to import XER file. Please try again.');
+        reader.onload = (e) => {
+            const content = e.target?.result as string;
+            if (!content) return;
+
+            const projectState = this.xerParser.parse(content);
+            if (!projectState) {
+                alert('Invalid or empty XER file.');
+                return;
             }
-        });
+
+            const dto = {
+                name: projectState.projectName,
+                description: projectState.projectDescription,
+                startDate: projectState.projectStartDate,
+                endDate: projectState.projectEndDate,
+                activities: projectState.activities.map(a => ({
+                    id: a.id,
+                    activityCode: a.id.toString(), // P6 often uses ID as code
+                    name: a.name,
+                    startDate: a.startDate,
+                    duration: a.duration,
+                    percentComplete: a.percentComplete,
+                    type: a.type,
+                    parentId: a.parentId
+                })),
+                dependencies: projectState.dependencies.map(d => ({
+                    sourceId: d.sourceId,
+                    targetId: d.targetId,
+                    type: d.type,
+                    lag: d.lag
+                })),
+                resources: projectState.resources?.map(r => ({
+                    id: r.id,
+                    name: r.name,
+                    unit: r.unit,
+                    costPerUnit: r.costPerUnit,
+                    resourceType: 'Labor'
+                })) || [],
+                resourceAssignments: projectState.activities.flatMap(a => a.resourceItems || []).map(ri => ({
+                    activityId: ri.activityId,
+                    resourceId: ri.resourceId,
+                    amount: ri.amount
+                }))
+            };
+
+            this.apiService.importParsedProject(dto).subscribe({
+                next: (importedProject) => {
+                    // Update list
+                    const newProject = {
+                        ...importedProject,
+                        startDate: new Date(importedProject.startDate),
+                        endDate: new Date(importedProject.endDate)
+                    };
+                    this.projects.update(projects => [...projects, newProject]);
+
+                    // Open the project
+                    this.openProject(importedProject.id);
+                },
+                error: (error) => {
+                    console.error('Failed to import project:', error);
+                    alert('Failed to import project. Please check the file format or connection.');
+                }
+            });
+        };
+
+        reader.readAsText(file);
     }
 
     triggerFileInput() {

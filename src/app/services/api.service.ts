@@ -301,9 +301,17 @@ export class ApiService {
         const formData = new FormData();
         formData.append('file', file);
 
-        return this.http.post<any>(`${this.apiUrl}/projects/import`, formData)
+        return this.http.post<any>(`${this.apiUrl}/projects/import-file-legacy`, formData)
             .pipe(
                 tap(data => console.log('Imported XER:', data)),
+                catchError(this.handleError)
+            );
+    }
+
+    importParsedProject(projectDto: any): Observable<any> {
+        return this.http.post<any>(`${this.apiUrl}/projects/import`, projectDto)
+            .pipe(
+                tap(data => console.log('Imported Project Data:', data)),
                 catchError(this.handleError)
             );
     }
