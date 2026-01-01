@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal, HostListener } from '@angular/core';
+import { Component, computed, inject, signal, HostListener, WritableSignal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PlanningService } from '../../services/planning.service';
@@ -8,6 +8,14 @@ import { ResourceUsageProfileComponent } from '../resource-usage-profile/resourc
 import { EVMDashboardComponent } from '../evm-dashboard/evm-dashboard.component';
 import { DependencyDetailsComponent } from '../dependency-details/dependency-details.component';
 import { SCurvesChartComponent } from '../s-curves-chart/s-curves-chart.component';
+
+export interface ColumnDef {
+  id: string;
+  name: string;
+  width: WritableSignal<number>;
+  visible: WritableSignal<boolean>;
+  property: string;
+}
 
 @Component({
   selector: 'app-gantt',
@@ -155,17 +163,50 @@ export class GanttComponent {
   taskListWidth = signal(600);
   isResizingPanel = false;
 
-  // Resizable Column State
-  colIdWidth = signal(60);
-  colStatusWidth = signal(30);
-  colNameWidth = signal(200); // Activity Name column
-  colDurWidth = signal(40);
-  colDateWidth = signal(80);
-  colFloatWidth = signal(50);
+  // Dynamic Column Definitions
+  columns = signal<ColumnDef[]>([
+    { id: 'id', name: 'Activity ID', width: signal(60), visible: signal(true), property: 'id' },
+    { id: 'status', name: 'Status', width: signal(30), visible: signal(true), property: 'status' },
+    { id: 'name', name: 'Activity Name', width: signal(200), visible: signal(true), property: 'name' },
+    { id: 'dur', name: 'Original Duration', width: signal(40), visible: signal(true), property: 'duration' },
+    { id: 'start', name: 'Start', width: signal(80), visible: signal(true), property: 'startDate' },
+    { id: 'finish', name: 'Finish', width: signal(80), visible: signal(true), property: 'finish' }, // computed
+    { id: 'float', name: 'Total Float', width: signal(50), visible: signal(true), property: 'totalFloat' },
+
+    // New Columns (Hidden by default or added)
+    { id: 'percent', name: '% Complete', width: signal(50), visible: signal(false), property: 'percentComplete' },
+    { id: 'earlyStart', name: 'Early Start', width: signal(80), visible: signal(false), property: 'earlyStart' },
+    { id: 'earlyFinish', name: 'Early Finish', width: signal(80), visible: signal(false), property: 'earlyFinish' },
+    { id: 'lateStart', name: 'Late Start', width: signal(80), visible: signal(false), property: 'lateStart' },
+    { id: 'lateFinish', name: 'Late Finish', width: signal(80), visible: signal(false), property: 'lateFinish' },
+    { id: 'blStart', name: 'BL Start', width: signal(80), visible: signal(false), property: 'baselineStartDate' },
+    { id: 'blFinish', name: 'BL Finish', width: signal(80), visible: signal(false), property: 'baselineEndDate' },
+    { id: 'budget', name: 'Budget (BAC)', width: signal(80), visible: signal(false), property: 'budgetAtCompletion' },
+    { id: 'actualCost', name: 'Actual Cost (AC)', width: signal(80), visible: signal(false), property: 'actualCost' }
+  ]);
+
+  visibleColumns = computed(() => this.columns().filter(c => c.visible()));
+
   isResizingColumn = false;
-  resizingColumnName: string | null = null;
+  resizingColumnId: string | null = null;
   columnDragStartX = 0;
   columnDragStartWidth = 0;
+
+  isColumnDropdownOpen = false;
+
+  toggleColumnDropdown(event: MouseEvent) {
+    event.stopPropagation();
+    this.isColumnDropdownOpen = !this.isColumnDropdownOpen;
+    // Close other dropdowns
+    if (this.isColumnDropdownOpen) this.isToolbarOpen = false;
+  }
+
+  toggleColumn(colId: string) {
+    const col = this.columns().find(c => c.id === colId);
+    if (col) {
+      col.visible.set(!col.visible());
+    }
+  }
 
   // View settings
   dayWidth = 40; // pixels per day
@@ -478,6 +519,9 @@ export class GanttComponent {
     if (this.isToolbarOpen) {
       this.isToolbarOpen = false;
     }
+    if (this.isColumnDropdownOpen) {
+      this.isColumnDropdownOpen = false;
+    }
   }
 
   // Floating Window State
@@ -547,21 +591,16 @@ export class GanttComponent {
     this.addGlobalListeners();
   }
 
-  onColumnResizeStart(event: MouseEvent, columnName: string) {
+  onColumnResizeStart(event: MouseEvent, columnId: string) {
     event.preventDefault();
     event.stopPropagation();
     this.isResizingColumn = true;
-    this.resizingColumnName = columnName;
+    this.resizingColumnId = columnId;
     this.columnDragStartX = event.clientX;
 
-    // Get current width based on column name
-    switch (columnName) {
-      case 'id': this.columnDragStartWidth = this.colIdWidth(); break;
-      case 'status': this.columnDragStartWidth = this.colStatusWidth(); break;
-      case 'name': this.columnDragStartWidth = this.colNameWidth(); break;
-      case 'dur': this.columnDragStartWidth = this.colDurWidth(); break;
-      case 'date': this.columnDragStartWidth = this.colDateWidth(); break;
-      case 'float': this.columnDragStartWidth = this.colFloatWidth(); break;
+    const col = this.columns().find(c => c.id === columnId);
+    if (col) {
+      this.columnDragStartWidth = col.width();
     }
 
     this.addGlobalListeners();
@@ -650,18 +689,14 @@ export class GanttComponent {
   }
 
   private handleColumnResize(event: MouseEvent) {
-    if (!this.resizingColumnName) return;
+    if (!this.resizingColumnId) return;
 
     const deltaX = event.clientX - this.columnDragStartX;
     const newWidth = Math.max(30, this.columnDragStartWidth + deltaX); // Min width 30px
 
-    switch (this.resizingColumnName) {
-      case 'id': this.colIdWidth.set(newWidth); break;
-      case 'status': this.colStatusWidth.set(newWidth); break;
-      case 'name': this.colNameWidth.set(newWidth); break;
-      case 'dur': this.colDurWidth.set(newWidth); break;
-      case 'date': this.colDateWidth.set(newWidth); break;
-      case 'float': this.colFloatWidth.set(newWidth); break;
+    const col = this.columns().find(c => c.id === this.resizingColumnId);
+    if (col) {
+      col.width.set(newWidth);
     }
   }
 
@@ -778,7 +813,7 @@ export class GanttComponent {
     this.isLinking = false;
     this.isResizingPanel = false; // Reset panel resize
     this.isResizingColumn = false; // Reset column resize
-    this.resizingColumnName = null;
+    this.resizingColumnId = null;
     this.isResizing = false;
     this.resizeDirection = null;
     this.dragActivityId = null;

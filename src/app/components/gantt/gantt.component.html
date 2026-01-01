@@ -23,6 +23,31 @@
             </svg>
         </div>
 
+        <!-- Columns Toggle Button -->
+        <div class="toolbar-trigger" (click)="toggleColumnDropdown($event)" style="margin-left: 10px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"></path>
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                <path d="M9 3v18"></path>
+                <path d="M15 3v18"></path>
+            </svg>
+        </div>
+
+        <!-- Columns Dropdown -->
+        <div class="toolbar-dropdown columns-dropdown" [class.visible]="isColumnDropdownOpen"
+            (click)="$event.stopPropagation()" style="left: 60px; min-width: 200px;">
+            <div class="dropdown-header" style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">
+                Visible Columns
+            </div>
+            <div class="dropdown-item" *ngFor="let col of columns()" (click)="toggleColumn(col.id)"
+                style="justify-content: flex-start; gap: 10px;">
+                <input type="checkbox" [checked]="col.visible()" (change)="toggleColumn(col.id)"
+                    (click)="$event.stopPropagation()">
+                <span>{{ col.name }}</span>
+            </div>
+        </div>
+
         <div class="toolbar-dropdown" [class.visible]="isToolbarOpen" (click)="$event.stopPropagation()">
             <button class="dropdown-item" (click)="onAdd()">
                 <span class="icon">+A</span>
@@ -108,32 +133,9 @@
         <!-- Left Panel: Grid -->
         <div class="task-list-panel" [style.width.px]="taskListWidth()">
             <div class="grid-header" [style.height.px]="headerHeight">
-                <div class="grid-col col-id" [style.width.px]="colIdWidth()">
-                    Activity ID
-                    <div class="column-resize-handle" (mousedown)="onColumnResizeStart($event, 'id')"></div>
-                </div>
-                <div class="grid-col col-status" [style.width.px]="colStatusWidth()">
-                    <div class="column-resize-handle" (mousedown)="onColumnResizeStart($event, 'status')"></div>
-                </div>
-                <div class="grid-col col-name" [style.width.px]="colNameWidth()">
-                    Activity Name
-                    <div class="column-resize-handle" (mousedown)="onColumnResizeStart($event, 'name')"></div>
-                </div>
-                <div class="grid-col col-dur" [style.width.px]="colDurWidth()">
-                    OD
-                    <div class="column-resize-handle" (mousedown)="onColumnResizeStart($event, 'dur')"></div>
-                </div>
-                <div class="grid-col col-date" [style.width.px]="colDateWidth()">
-                    Start
-                    <div class="column-resize-handle" (mousedown)="onColumnResizeStart($event, 'date')"></div>
-                </div>
-                <div class="grid-col col-date" [style.width.px]="colDateWidth()">
-                    Finish
-                    <div class="column-resize-handle" (mousedown)="onColumnResizeStart($event, 'date')"></div>
-                </div>
-                <div class="grid-col col-float" [style.width.px]="colFloatWidth()">
-                    Total Float
-                    <div class="column-resize-handle" (mousedown)="onColumnResizeStart($event, 'float')"></div>
+                <div class="grid-col" *ngFor="let col of visibleColumns()" [style.width.px]="col.width()">
+                    {{ col.name }}
+                    <div class="column-resize-handle" (mousedown)="onColumnResizeStart($event, col.id)"></div>
                 </div>
             </div>
             <div class="task-list-rows" (scroll)="onTaskListScroll($event)" (click)="onDeselect($event)">
@@ -144,32 +146,54 @@
                     [class.wbs-row]="isParentActivity(activity)" (click)="selectActivity(activity, $event)"
                     (dblclick)="onActivityDoubleClick(activity, $event)">
 
-                    <div class="grid-col col-id" [style.width.px]="colIdWidth()">{{ activity.id }}</div>
+                    <div class="grid-col" *ngFor="let col of visibleColumns()" [style.width.px]="col.width()"
+                        [ngSwitch]="col.id"
+                        [style.padding-left.px]="col.id === 'name' ? (getActivityLevel(activity) * 20) : null"
+                        [style.color]="(col.id === 'float' && (activity.totalFloat || 0) <= 0) ? 'red' : 'inherit'">
 
-                    <div class="grid-col col-status" [style.width.px]="colStatusWidth()">
-                        <span *ngIf="activity.percentComplete === 100">✓</span>
-                        <span *ngIf="activity.isCritical && activity.percentComplete !== 100"
-                            style="color: red;">!</span>
-                    </div>
+                        <!-- ID -->
+                        <span *ngSwitchCase="'id'">{{ activity.id }}</span>
 
-                    <div class="grid-col col-name" [style.width.px]="colNameWidth()"
-                        [style.padding-left.px]="getActivityLevel(activity) * 20">
-                        <span class="expand-icon" *ngIf="isParentActivity(activity)"
-                            (click)="toggleActivity(activity, $event)">
-                            {{ activity.isExpanded ? "-" : "+" }}
-                        </span>
-                        <span [class.parent-activity]="isParentActivity(activity)">{{ activity.name }}</span>
-                    </div>
+                        <!-- Status -->
+                        <div *ngSwitchCase="'status'">
+                            <span *ngIf="activity.percentComplete === 100">✓</span>
+                            <span *ngIf="activity.isCritical && activity.percentComplete !== 100"
+                                style="color: red;">!</span>
+                        </div>
 
-                    <div class="grid-col col-dur" [style.width.px]="colDurWidth()">{{ activity.duration }}</div>
-                    <div class="grid-col col-date" [style.width.px]="colDateWidth()">{{ activity.startDate |
-                        date:'dd-MMM-yy' }}</div>
-                    <div class="grid-col col-date" [style.width.px]="colDateWidth()">
-                        {{ getDisplayFinish(activity) | date:'dd-MMM-yy' }}
-                    </div>
-                    <div class="grid-col col-float" [style.width.px]="colFloatWidth()"
-                        [style.color]="(activity.totalFloat || 0) <= 0 ? 'red' : 'black'">
-                        {{ activity.totalFloat || 0 }}
+                        <!-- Name -->
+                        <div *ngSwitchCase="'name'"
+                            style="display: flex; align-items: center; width: 100%; overflow: hidden;">
+                            <span class="expand-icon" *ngIf="isParentActivity(activity)"
+                                (click)="toggleActivity(activity, $event)"
+                                style="margin-right: 4px; cursor: pointer; font-family: monospace; font-weight: bold;">
+                                {{ activity.isExpanded ? "-" : "+" }}
+                            </span>
+                            <span [class.parent-activity]="isParentActivity(activity)"
+                                style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                {{ activity.name }}
+                            </span>
+                        </div>
+
+                        <!-- Duration -->
+                        <span *ngSwitchCase="'dur'">{{ activity.duration }}</span>
+
+                        <!-- Dates -->
+                        <span *ngSwitchCase="'start'">{{ activity.startDate | date:'dd-MMM-yy' }}</span>
+                        <span *ngSwitchCase="'finish'">{{ getDisplayFinish(activity) | date:'dd-MMM-yy' }}</span>
+                        <span *ngSwitchCase="'earlyStart'">{{ activity.earlyStart | date:'dd-MMM-yy' }}</span>
+                        <span *ngSwitchCase="'earlyFinish'">{{ activity.earlyFinish | date:'dd-MMM-yy' }}</span>
+                        <span *ngSwitchCase="'lateStart'">{{ activity.lateStart | date:'dd-MMM-yy' }}</span>
+                        <span *ngSwitchCase="'lateFinish'">{{ activity.lateFinish | date:'dd-MMM-yy' }}</span>
+                        <span *ngSwitchCase="'blStart'">{{ activity.baselineStartDate | date:'dd-MMM-yy' }}</span>
+                        <span *ngSwitchCase="'blFinish'">{{ activity.baselineEndDate | date:'dd-MMM-yy' }}</span>
+
+                        <!-- Numbers -->
+                        <span *ngSwitchCase="'percent'">{{ activity.percentComplete }}%</span>
+                        <span *ngSwitchCase="'float'">{{ activity.totalFloat || 0 }}</span>
+                        <span *ngSwitchCase="'budget'">{{ activity.budgetAtCompletion | currency }}</span>
+                        <span *ngSwitchCase="'actualCost'">{{ activity.actualCost | currency }}</span>
+
                     </div>
                 </div>
             </div>
