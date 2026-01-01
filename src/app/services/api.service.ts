@@ -186,7 +186,7 @@ export class ApiService {
                     type
                     lag
                 }
-                resources {
+                resources(where: { projectId: { eq: $projectId } }) {
                     id
                     name
                     unit
@@ -197,7 +197,7 @@ export class ApiService {
                     maxAvailabilityUnitsPerDay
                     maxAvailabilityUnitsPerHour
                 }
-                calendars {
+                calendars(where: { projectId: { eq: $projectId } }) {
                     id
                     name
                     isDefault
@@ -212,7 +212,7 @@ export class ApiService {
                         isWorkDay
                     }
                 }
-                resourceTypes {
+                resourceTypes(where: { projectId: { eq: $projectId } }) {
                     id
                     name
                     description
