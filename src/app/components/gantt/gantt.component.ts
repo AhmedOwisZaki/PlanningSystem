@@ -1,4 +1,5 @@
 import { Component, computed, inject, signal, HostListener, WritableSignal } from '@angular/core';
+import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PlanningService } from '../../services/planning.service';
@@ -151,6 +152,11 @@ export class GanttComponent {
     }
   }
   public planningService = inject(PlanningService);
+  private router = inject(Router);
+
+  goBack() {
+    this.router.navigate(['/projects']);
+  }
 
   activities = this.planningService.activities;
   projectStartDate = this.planningService.projectStartDate;
