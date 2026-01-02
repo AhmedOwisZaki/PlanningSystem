@@ -247,7 +247,8 @@ export class PlanningService {
                         lateStart: a.lateStart ? new Date(a.lateStart) : undefined,
                         lateFinish: a.lateFinish ? new Date(a.lateFinish) : undefined,
                         baselineStartDate: a.baselineStartDate ? new Date(a.baselineStartDate) : undefined,
-                        baselineEndDate: a.baselineEndDate ? new Date(a.baselineEndDate) : undefined
+                        baselineEndDate: a.baselineEndDate ? new Date(a.baselineEndDate) : undefined,
+                        isExpanded: true
                     })),
                     dependencies: data.dependencies,
                     resources: data.resources,

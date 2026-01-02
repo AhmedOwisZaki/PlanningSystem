@@ -177,7 +177,7 @@
                             <span class="expand-icon" *ngIf="isParentActivity(activity)"
                                 (click)="toggleActivity(activity, $event)"
                                 style="margin-right: 4px; cursor: pointer; font-family: monospace; font-weight: bold;">
-                                {{ activity.isExpanded ? "-" : "+" }}
+                                {{ activity.isExpanded !== false ? "-" : "+" }}
                             </span>
                             <span [class.parent-activity]="isParentActivity(activity)"
                                 style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
