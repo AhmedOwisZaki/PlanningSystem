@@ -491,43 +491,34 @@
 
 /* Task Label Styling */
 
-/* Default / Tooltip Mode (Zoom <= 2) */
+/* Right-of-Bar Label Mode (Zoom <= 0.5 or task too small) */
 .task-bar:not(.zoom-large) {
   .task-label {
     position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%) translateY(-8px);
-    background: #333;
-    color: #fff;
-    padding: 5px 10px;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    white-space: nowrap;
-    pointer-events: none;
-    z-index: 100;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.2s, visibility 0.2s;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    top: 50% !important;
+    left: 100% !important;
+    bottom: auto !important;
+    transform: translateY(-50%) !important;
+    margin-left: 8px;
 
+    background: transparent !important;
+    color: #495057 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    font-size: 0.75rem;
+    white-space: nowrap !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: none;
+    z-index: 2;
+
+    /* Remove tooltip arrow if it was there */
     &::after {
-      content: '';
-      position: absolute;
-      top: 100%;
-      left: 50%;
-      margin-left: -5px;
-      border-width: 5px;
-      border-style: solid;
-      border-color: #333 transparent transparent transparent;
+      display: none !important;
     }
   }
 
-  /* Show tooltip on hover, UNLESS it's a parent task (which won't use tooltip style) */
-  &:not(.parent-task-bar):hover .task-label {
-    opacity: 1;
-    visibility: visible;
-  }
+  /* Ensure label is always visible on hover if it was clipped, though here it's outside */
 }
 
 /* In-Bar Label Mode (Zoom > 2) */
