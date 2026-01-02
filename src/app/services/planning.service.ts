@@ -1546,6 +1546,9 @@ export class PlanningService {
         const currentStatusDate = this.state().statusDate || new Date();
 
         activities.forEach(activity => {
+            // SKIP Parents/WBS to avoid double-counting costs (Rollups are calculated from leaves)
+            if (this.isParent(activity.id)) return;
+
             // Calculate BAC based on resources if not explicitly set
             let bac = activity.budgetAtCompletion ?? 0;
             if (bac === 0 && activity.resourceItems && activity.resourceItems.length > 0) {
@@ -1557,11 +1560,19 @@ export class PlanningService {
                 });
             }
 
-            // Fallback to duration for visibility if no budget or resources
-            if (bac === 0) bac = activity.duration;
+            // Fallback to duration for visibility if no budget or resources removed
+            // if (bac === 0) bac = activity.duration;
 
             const currentEV = bac * ((activity.percentComplete ?? 0) / 100);
-            const currentAC = activity.actualCost ?? 0;
+            // AC: If resources exist, sum them. Otherwise use actualCost field.
+            let activityAC = activity.actualCost ?? 0;
+            if (activity.resourceItems && activity.resourceItems.length > 0) {
+                // Note: actualCost on the activity might be a manual override or sum from backend.
+                // To match s-curve exactly we should be consistent. 
+                // For simplicity, if actualCost is 0, we could estimate or just use the field.
+                // Logic check: typically actualCost is synced.
+            }
+
             const calendar = this.getCalendar(activity.calendarId);
 
             // 1. Planned Value (PV) - Calendar Aware
@@ -1593,14 +1604,14 @@ export class PlanningService {
                 ac += 0;
             } else if (dataDate >= currentStatusDate) {
                 ev += currentEV;
-                ac += currentAC;
+                ac += activityAC;
             } else {
                 const totalRange = currentStatusDate.getTime() - activity.startDate.getTime();
                 const elapsed = dataDate.getTime() - activity.startDate.getTime();
 
                 const factor = totalRange > 0 ? elapsed / totalRange : 1;
                 ev += currentEV * factor;
-                ac += currentAC * factor;
+                ac += activityAC * factor;
             }
         });
 
@@ -1611,6 +1622,8 @@ export class PlanningService {
 
         // Recalculate totalBAC using the same logic for consistency
         const totalBAC = activities.reduce((sum, activity) => {
+            if (this.isParent(activity.id)) return sum; // Skip parents
+
             let abac = activity.budgetAtCompletion ?? 0;
             if (abac === 0 && activity.resourceItems && activity.resourceItems.length > 0) {
                 activity.resourceItems.forEach((ri: any) => {
@@ -1618,7 +1631,7 @@ export class PlanningService {
                     if (res) abac += (ri.amount || 0) * (res.costPerUnit || 0);
                 });
             }
-            if (abac === 0) abac = activity.duration;
+            // if (abac === 0) abac = activity.duration;
             return sum + abac;
         }, 0);
 

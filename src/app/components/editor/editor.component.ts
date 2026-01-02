@@ -78,6 +78,7 @@ export class EditorComponent {
     // Resource Type management
     isManagingResourceTypes = signal(false);
     isViewingAllAssignments = signal(false);
+    isViewingCostBreakdown = signal(false);
     editingResourceType = signal<any | null>(null);
     newResourceTypeData = { name: '', description: '' };
 
@@ -88,20 +89,46 @@ export class EditorComponent {
 
         const assignments: any[] = [];
         activities.forEach(activity => {
+            // SKIP Parents/WBS to match S-Curve logic
+            if (this.planningService.isParent(activity.id)) return;
+
             if (activity.resourceItems && activity.resourceItems.length > 0) {
+                // 1. Resource Assignments
                 activity.resourceItems.forEach((item: any) => {
                     const resource = resMap.get(item.resourceId);
+                    const costPerUnit = resource?.costPerUnit || 0;
                     assignments.push({
                         ...item,
                         activityName: activity.name,
                         resourceName: resource ? resource.name : 'Unknown Resource',
-                        unit: resource ? resource.unit : '-'
+                        unit: resource ? resource.unit : '-',
+                        costPerUnit: costPerUnit,
+                        totalCost: (item.amount || 0) * costPerUnit,
+                        type: 'Resource'
                     });
                 });
+            } else {
+                // 2. Non-Resource Costs (Manual Budget ONLY)
+                let cost = activity.budgetAtCompletion || 0;
+                let origin = 'Manual Budget';
+
+                if (cost > 0) {
+                    assignments.push({
+                        id: `manual-${activity.id}`,
+                        activityId: activity.id,
+                        activityName: activity.name,
+                        resourceName: origin,
+                        unit: 'Lump Sum',
+                        amount: 1,
+                        costPerUnit: cost,
+                        totalCost: cost,
+                        type: 'Fixed'
+                    });
+                }
             }
         });
-        // Sort by resource name or activity name? Let's go with resource name.
-        return assignments.sort((a, b) => a.resourceName.localeCompare(b.resourceName));
+        // Sort by resource name or activity name
+        return assignments.sort((a, b) => a.activityName.localeCompare(b.activityName));
     });
 
     @Output() requestOpenProfile = new EventEmitter<Resource>();
@@ -126,6 +153,7 @@ export class EditorComponent {
         this.selectedResource.set(null); // Clear selection when switching tabs if desired
         this.showProfile.set(false);
         this.isViewingAllAssignments.set(false);
+        this.isViewingCostBreakdown.set(false);
     }
 
     selectResource(resource: Resource, event?: Event) {
@@ -251,6 +279,10 @@ export class EditorComponent {
             this.isManagingResourceTypes.set(false);
             this.selectedResource.set(null);
         }
+    }
+
+    toggleViewingCostBreakdown() {
+        this.isViewingCostBreakdown.set(!this.isViewingCostBreakdown());
     }
 
     startAddResourceType() {

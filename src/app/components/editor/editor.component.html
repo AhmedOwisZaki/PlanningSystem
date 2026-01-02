@@ -61,9 +61,59 @@
 
             <div class="evm-section">
                 <h4>EVM Analysis</h4>
-                <button class="btn-s-curves" (click)="openSCurves()">
-                    📊 View S-Curves Chart
-                </button>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-s-curves" (click)="openSCurves()" style="flex: 1;">
+                        📊 View S-Curves Chart
+                    </button>
+                    <button class="btn-s-curves" (click)="toggleViewingCostBreakdown()"
+                        style="flex: 1; background: linear-gradient(135deg, #15aabf 0%, #1098ad 100%);">
+                        💰 {{ isViewingCostBreakdown() ? 'Hide Breakdown' : 'View Cost Breakdown' }}
+                    </button>
+                </div>
+            </div>
+
+            <!-- Cost Breakdown View (In Project Tab) -->
+            <div class="all-assignments-view cost-breakdown-view" *ngIf="isViewingCostBreakdown()"
+                (click)="$event.stopPropagation()" style="margin-top: 2rem;">
+                <div class="feature-header">
+                    <h4>Detailed Cost Breakdown</h4>
+                    <span class="count-badge">{{ allAssignments().length }} assignments</span>
+                </div>
+
+                <div class="assignments-table-container">
+                    <table class="assignments-table">
+                        <thead>
+                            <tr>
+                                <th>Resource</th>
+                                <th>Activity</th>
+                                <th>Amount</th>
+                                <th>Rate</th>
+                                <th>Total Cost</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let ass of allAssignments()">
+                                <td class="res-name-cell">
+                                    <span [class.manual-label]="ass.type === 'Fixed'">{{ ass.resourceName }}</span>
+                                </td>
+                                <td class="act-name-cell">{{ ass.activityName }}</td>
+                                <td class="amount-cell">{{ ass.amount }} {{ ass.unit }}</td>
+                                <td class="rate-cell">${{ ass.costPerUnit | number:'1.2-2' }}</td>
+                                <td class="total-cost-cell">${{ ass.totalCost | number:'1.2-2' }}</td>
+                            </tr>
+                            <tr *ngIf="allAssignments().length === 0">
+                                <td colspan="5" class="no-data">No costs found in this project.</td>
+                            </tr>
+                        </tbody>
+                        <tfoot *ngIf="allAssignments().length > 0">
+                            <tr class="total-row">
+                                <td colspan="4" style="text-align: right; font-weight: 700;">Grand Total (BAC):</td>
+                                <td class="total-cost-cell">${{ planningService.calculateEVM().bac | number:'1.2-2' }}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -250,20 +300,31 @@
                                 <th>Resource</th>
                                 <th>Activity</th>
                                 <th>Amount</th>
-                                <th>Unit</th>
+                                <th>Rate</th>
+                                <th>Total Cost</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr *ngFor="let ass of allAssignments()">
-                                <td class="res-name-cell">{{ ass.resourceName }}</td>
+                                <td class="res-name-cell">
+                                    <span [class.manual-label]="ass.type === 'Fixed'">{{ ass.resourceName }}</span>
+                                </td>
                                 <td class="act-name-cell">{{ ass.activityName }}</td>
-                                <td class="amount-cell">{{ ass.amount }}</td>
-                                <td class="unit-cell">{{ ass.unit }}</td>
+                                <td class="amount-cell">{{ ass.amount }} {{ ass.unit }}</td>
+                                <td class="rate-cell">${{ ass.costPerUnit | number:'1.2-2' }}</td>
+                                <td class="total-cost-cell">${{ ass.totalCost | number:'1.2-2' }}</td>
                             </tr>
                             <tr *ngIf="allAssignments().length === 0">
-                                <td colspan="4" class="no-data">No resource assignments found in this project.</td>
+                                <td colspan="5" class="no-data">No resource assignments found in this project.</td>
                             </tr>
                         </tbody>
+                        <tfoot *ngIf="allAssignments().length > 0">
+                            <tr class="total-row">
+                                <td colspan="4" style="text-align: right; font-weight: 700;">Grand Total:</td>
+                                <td class="total-cost-cell">${{ planningService.calculateEVM().bac | number:'1.2-2' }}
+                                </td>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
             </div>

@@ -1083,6 +1083,7 @@
         transform: translateY(0);
     }
 }
+
 /* All Assignments View */
 .all-assignments-view {
     padding: 0 0.5rem;
@@ -1122,7 +1123,8 @@
     border-collapse: collapse;
     font-size: 0.9rem;
 
-    th, td {
+    th,
+    td {
         padding: 10px 12px;
         text-align: left;
         border-bottom: 1px solid #f1f3f5;
@@ -1161,6 +1163,40 @@
         font-size: 0.85rem;
     }
 
+    .rate-cell {
+        color: #495057;
+        text-align: right;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.85rem;
+    }
+
+    .total-cost-cell {
+        font-weight: 700;
+        color: #2b8a3e;
+        /* Green for money */
+        text-align: right;
+    }
+
+    .manual-label {
+        font-style: italic;
+        color: #868e96;
+
+        &::after {
+            content: " (Non-Resource)";
+            font-size: 0.7rem;
+            opacity: 0.7;
+        }
+    }
+
+    .total-row {
+        background: #f8f9fa;
+
+        td {
+            border-top: 2px solid #dee2e6;
+            padding: 12px;
+        }
+    }
+
     .no-data {
         padding: 2rem;
         text-align: center;
@@ -1170,6 +1206,13 @@
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(5px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
