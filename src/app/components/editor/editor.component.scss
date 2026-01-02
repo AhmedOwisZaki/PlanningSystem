@@ -909,17 +909,7 @@
     }
 }
 
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
 
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
 
 /* Stylish Delete Button */
 .btn-icon.delete-stylish {
@@ -1092,4 +1082,94 @@
         opacity: 1;
         transform: translateY(0);
     }
+}
+/* All Assignments View */
+.all-assignments-view {
+    padding: 0 0.5rem;
+    animation: fadeIn 0.3s ease;
+
+    .feature-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+
+        h4 {
+            margin: 0;
+            color: #333;
+        }
+
+        .count-badge {
+            font-size: 0.8rem;
+            color: #868e96;
+            background: #f1f3f5;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+    }
+}
+
+.assignments-table-container {
+    margin-top: 1rem;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+}
+
+.assignments-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+
+    th, td {
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid #f1f3f5;
+    }
+
+    th {
+        background: #f8f9fa;
+        font-weight: 600;
+        color: #495057;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    tr:hover {
+        background: #f8f9fa;
+    }
+
+    .res-name-cell {
+        font-weight: 600;
+        color: #1c7ed6;
+    }
+
+    .act-name-cell {
+        color: #495057;
+    }
+
+    .amount-cell {
+        font-weight: 600;
+        text-align: right;
+        padding-right: 20px;
+    }
+
+    .unit-cell {
+        color: #868e96;
+        font-size: 0.85rem;
+    }
+
+    .no-data {
+        padding: 2rem;
+        text-align: center;
+        color: #adb5bd;
+        font-style: italic;
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
 }

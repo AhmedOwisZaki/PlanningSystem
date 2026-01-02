@@ -85,6 +85,10 @@
                         [class.active]="isManagingResourceTypes()">
                         🏷️ Manage types
                     </button>
+                    <button class="btn-profile" (click)="toggleViewingAllAssignments()"
+                        [class.active]="isViewingAllAssignments()">
+                        📊 All Assignments
+                    </button>
                 </div>
                 <button class="btn-add" (click)="startAddResource()" *ngIf="!showAddResourceForm">+</button>
             </div>
@@ -195,7 +199,7 @@
             </div>
 
             <!-- Resource List (No Side Panel) -->
-            <div class="resource-categories" *ngIf="!isManagingResourceTypes()">
+            <div class="resource-categories" *ngIf="!isManagingResourceTypes() && !isViewingAllAssignments()">
                 <div class="category-group" *ngFor="let group of resourcesByType()">
 
                     <!-- Category Header -->
@@ -229,6 +233,38 @@
                         </div>
                         <div class="no-data" *ngIf="group.resources.length === 0">No resources</div>
                     </div>
+                </div>
+            </div>
+
+            <!-- All Assignments View -->
+            <div class="all-assignments-view" *ngIf="isViewingAllAssignments()" (click)="$event.stopPropagation()">
+                <div class="feature-header">
+                    <h4>Global Resource Assignments</h4>
+                    <span class="count-badge">{{ allAssignments().length }} assignments total</span>
+                </div>
+
+                <div class="assignments-table-container">
+                    <table class="assignments-table">
+                        <thead>
+                            <tr>
+                                <th>Resource</th>
+                                <th>Activity</th>
+                                <th>Amount</th>
+                                <th>Unit</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let ass of allAssignments()">
+                                <td class="res-name-cell">{{ ass.resourceName }}</td>
+                                <td class="act-name-cell">{{ ass.activityName }}</td>
+                                <td class="amount-cell">{{ ass.amount }}</td>
+                                <td class="unit-cell">{{ ass.unit }}</td>
+                            </tr>
+                            <tr *ngIf="allAssignments().length === 0">
+                                <td colspan="4" class="no-data">No resource assignments found in this project.</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 

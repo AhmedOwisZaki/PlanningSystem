@@ -77,8 +77,32 @@ export class EditorComponent {
 
     // Resource Type management
     isManagingResourceTypes = signal(false);
+    isViewingAllAssignments = signal(false);
     editingResourceType = signal<any | null>(null);
     newResourceTypeData = { name: '', description: '' };
+
+    allAssignments = computed(() => {
+        const activities = this.activities() || [];
+        const resources = this.resources() || [];
+        const resMap = new Map(resources.map(r => [r.id, r]));
+
+        const assignments: any[] = [];
+        activities.forEach(activity => {
+            if (activity.resourceItems && activity.resourceItems.length > 0) {
+                activity.resourceItems.forEach((item: any) => {
+                    const resource = resMap.get(item.resourceId);
+                    assignments.push({
+                        ...item,
+                        activityName: activity.name,
+                        resourceName: resource ? resource.name : 'Unknown Resource',
+                        unit: resource ? resource.unit : '-'
+                    });
+                });
+            }
+        });
+        // Sort by resource name or activity name? Let's go with resource name.
+        return assignments.sort((a, b) => a.resourceName.localeCompare(b.resourceName));
+    });
 
     @Output() requestOpenProfile = new EventEmitter<Resource>();
     @Output() requestOpenSCurves = new EventEmitter<void>();
@@ -101,6 +125,7 @@ export class EditorComponent {
         this.activeTab = tab;
         this.selectedResource.set(null); // Clear selection when switching tabs if desired
         this.showProfile.set(false);
+        this.isViewingAllAssignments.set(false);
     }
 
     selectResource(resource: Resource, event?: Event) {
@@ -215,6 +240,17 @@ export class EditorComponent {
     toggleManageResourceTypes() {
         this.isManagingResourceTypes.set(!this.isManagingResourceTypes());
         this.editingResourceType.set(null);
+        if (this.isManagingResourceTypes()) {
+            this.isViewingAllAssignments.set(false);
+        }
+    }
+
+    toggleViewingAllAssignments() {
+        this.isViewingAllAssignments.set(!this.isViewingAllAssignments());
+        if (this.isViewingAllAssignments()) {
+            this.isManagingResourceTypes.set(false);
+            this.selectedResource.set(null);
+        }
     }
 
     startAddResourceType() {
