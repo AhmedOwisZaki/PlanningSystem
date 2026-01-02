@@ -90,11 +90,27 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr *ngFor="let item of selectedActivity()?.resourceItems">
+                            <tr *ngFor="let item of selectedActivity()?.resourceItems"
+                                (dblclick)="startEditResourceItem(item)">
                                 <td>{{ getResourceName(item.resourceId) }}</td>
                                 <td>{{ getResourceCost(item.resourceId) | currency }}</td>
-                                <td>{{ item.amount }}</td>
+                                <td>
+                                    <div *ngIf="editingResourceItemId() !== item.id">
+                                        {{ item.amount }}
+                                    </div>
+                                    <div *ngIf="editingResourceItemId() === item.id" (click)="$event.stopPropagation()">
+                                        <input type="number" [(ngModel)]="editAmount"
+                                            (keyup.enter)="saveResourceItemEdit()"
+                                            (keyup.esc)="cancelResourceItemEdit()" (blur)="saveResourceItemEdit()"
+                                            class="form-control" style="width: 70px; padding: 2px 5px;"
+                                            [autofocus]="true">
+                                    </div>
+                                </td>
                                 <td>{{ item.amount * getResourceCost(item.resourceId) | currency }}</td>
+                                <td>
+                                    <button class="close-btn" style="font-size:1.2rem; width:20px; height:20px;"
+                                        (click)="deleteResourceItem(item)">×</button>
+                                </td>
                             </tr>
                         </tbody>
                     </table>

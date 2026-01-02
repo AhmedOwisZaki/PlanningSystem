@@ -630,6 +630,62 @@ export class PlanningService {
         });
     }
 
+    updateResourceAssignment(activityId: number, assignmentId: number, amount: number) {
+        console.log('PlanningService: updateResourceAssignment', { activityId, assignmentId, amount });
+        this.apiService.updateResourceAssignment(activityId, 0, { id: assignmentId, amount }).subscribe({
+            next: (updatedAssignment) => {
+                console.log('PlanningService: updateResourceAssignment success', updatedAssignment);
+                this.state.update(current => {
+                    const activities = current.activities.map(a => {
+                        if (a.id !== activityId) return a;
+                        const resourceItems = (a.resourceItems || []).map((item: any) =>
+                            item.id === assignmentId ? updatedAssignment : item
+                        );
+                        return { ...a, resourceItems };
+                    });
+                    return { ...current, activities };
+                });
+
+                // Update selectedActivity if needed
+                const currentSelected = this.selectedActivity();
+                if (currentSelected && currentSelected.id === activityId) {
+                    // Refresh selected activity from state
+                    const updated = this.state().activities.find(a => a.id === activityId) || null;
+                    this.selectedActivity.set(updated);
+                }
+            },
+            error: (err) => console.error('Failed to update resource assignment:', err)
+        });
+    }
+
+    removeResourceAssignment(activityId: number, assignmentId: number) {
+        console.log('PlanningService: removeResourceAssignment', { activityId, assignmentId });
+        this.apiService.removeResourceFromActivity(activityId, 0, assignmentId).subscribe({
+            next: () => {
+                console.log('PlanningService: removeResourceAssignment success');
+                this.state.update(current => {
+                    const activities = current.activities.map(a => {
+                        if (a.id !== activityId) return a;
+                        const resourceItems = (a.resourceItems || []).filter((item: any) =>
+                            item.id !== assignmentId
+                        );
+                        return { ...a, resourceItems };
+                    });
+                    return { ...current, activities };
+                });
+
+                // Update selectedActivity if needed
+                const currentSelected = this.selectedActivity();
+                if (currentSelected && currentSelected.id === activityId) {
+                    // Refresh selected activity from state
+                    const updated = this.state().activities.find(a => a.id === activityId) || null;
+                    this.selectedActivity.set(updated);
+                }
+            },
+            error: (err) => console.error('Failed to remove resource assignment:', err)
+        });
+    }
+
     // WBS Hierarchy Methods
     getChildren(parentId: number): Activity[] {
         return this.state().activities.filter(a => a.parentId === parentId);

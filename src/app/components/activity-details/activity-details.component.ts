@@ -161,6 +161,43 @@ export class ActivityDetailsComponent implements OnDestroy {
         }
     }
 
+    // Resource Item Editing
+    editingResourceItemId = signal<number | null>(null);
+    editAmount = 0; // Riverside: changed editAmount to regular property
+
+    startEditResourceItem(item: any) {
+        this.editingResourceItemId.set(item.id);
+        this.editAmount = item.amount;
+    }
+
+    cancelResourceItemEdit() {
+        this.editingResourceItemId.set(null);
+    }
+
+    saveResourceItemEdit() {
+        const itemId = this.editingResourceItemId();
+        const activityId = this.selectedActivity()?.id;
+        const amount = Number(this.editAmount);
+
+        console.log('Component: saveResourceItemEdit', { itemId, activityId, amount });
+
+        if (itemId !== null && activityId !== undefined && !isNaN(amount) && amount > 0) {
+            this.planningService.updateResourceAssignment(activityId, itemId, amount);
+            this.editingResourceItemId.set(null);
+        } else {
+            console.warn('Component: saveResourceItemEdit validation failed', { itemId, activityId, amount });
+        }
+    }
+
+    deleteResourceItem(item: any) {
+        if (confirm(`Remove resource ${this.getResourceName(item.resourceId)}?`)) {
+            const activityId = this.selectedActivity()?.id;
+            if (activityId !== undefined) {
+                this.planningService.removeResourceAssignment(activityId, item.id);
+            }
+        }
+    }
+
     @Output() close = new EventEmitter<void>();
 
     closeDetailsPanel() {

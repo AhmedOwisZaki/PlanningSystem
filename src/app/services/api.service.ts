@@ -962,6 +962,7 @@ export class ApiService {
     }
 
     updateResourceAssignment(activityId: number, resourceId: number, assignment: any): Observable<any> {
+        console.log('ApiService: updateResourceAssignment', { activityId, resourceId, assignment });
         // Note: Backend requires ResourceItem ID. If we don't have it, we might need to find it.
         // For now, assuming assignment object has 'id'.
         const mutation = `
@@ -978,11 +979,13 @@ export class ApiService {
             id: assignment.id,
             amount: assignment.amount
         };
+        console.log('ApiService: executing GraphQL updateResourceItem', { input });
         return this.executeGraphQL(mutation, { input }).pipe(
             map(res => res.data.updateResourceItem),
-            tap(data => console.log('Updated resource assignment via GraphQL:', data))
+            tap(data => console.log('Updated resource assignment via GraphQL response:', data))
         );
     }
+
 
     removeResourceFromActivity(activityId: number, resourceId: number, resourceItemId?: number): Observable<any> {
         const mutation = `
