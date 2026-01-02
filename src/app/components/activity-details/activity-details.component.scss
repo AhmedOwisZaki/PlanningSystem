@@ -48,7 +48,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.5rem 1rem;
+    padding: 0.15rem 1rem;
     /* Reduced bottom padding */
     background: #f8f9fa;
     border-bottom: 1px solid #e9ecef;
@@ -92,7 +92,7 @@
     button {
         background: none;
         border: none;
-        padding: 0.5rem 0.25rem;
+        padding: 0.15rem 0.25rem;
         font-size: 0.9rem;
         color: #6c757d;
         cursor: pointer;
@@ -294,7 +294,7 @@
 
     .relationship-column {
         flex: 1;
-        padding: 1rem;
+        padding: 0.3rem 1rem;
         border-right: 1px solid #dee2e6;
         overflow-y: auto;
 
@@ -304,12 +304,20 @@
 
         h4 {
             margin-top: 0;
-            margin-bottom: 1rem;
+            margin-bottom: 0.3rem;
             color: #495057;
-            padding-bottom: 0.5rem;
+            padding-bottom: 0.15rem;
             border-bottom: 2px solid #339af0;
             display: inline-block;
             font-size: 0.95rem;
+        }
+    }
+
+    .resource-table {
+
+        td,
+        th {
+            padding: 4px 8px;
         }
     }
 }
