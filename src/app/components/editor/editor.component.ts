@@ -285,6 +285,12 @@ export class EditorComponent {
         this.isViewingCostBreakdown.set(!this.isViewingCostBreakdown());
     }
 
+    updateProjectStartDate(newDate: string) {
+        if (newDate) {
+            this.planningService.updateProjectStartDate(new Date(newDate));
+        }
+    }
+
     startAddResourceType() {
         this.editingResourceType.set({ id: 0, name: '', description: '', projectId: this.planningService.state().projectId });
     }

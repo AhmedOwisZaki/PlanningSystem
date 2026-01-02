@@ -152,11 +152,18 @@ export class PlanningService {
         if (!calendar.workDays[dayOfWeek]) return false;
 
         // Check holidays
-        // Normalize date to YYYY-MM-DD for comparison
-        const checkStr = date.toISOString().split('T')[0];
+        // Use local date components for stable comparison avoiding timezone shifts
+        const y = date.getFullYear();
+        const m = (date.getMonth() + 1).toString().padStart(2, '0');
+        const d = date.getDate().toString().padStart(2, '0');
+        const checkStr = `${y}-${m}-${d}`;
+
         const isHoliday = calendar.holidays.some(h => {
             const hDate = new Date(h);
-            return hDate.toISOString().split('T')[0] === checkStr;
+            const hy = hDate.getFullYear();
+            const hm = (hDate.getMonth() + 1).toString().padStart(2, '0');
+            const hd = hDate.getDate().toString().padStart(2, '0');
+            return `${hy}-${hm}-${hd}` === checkStr;
         });
 
         return !isHoliday;
@@ -780,74 +787,45 @@ export class PlanningService {
             if (this.isParent(id)) return; // Skip summaries for logic
 
             let earlyStart = new Date(projectStart);
-
-            const preds = predecessors.get(id) || [];
-
-            // If no predecessors, default to Project Start (adjusted for calendar)
-            if (preds.length === 0) {
-                // Adjust project start to be a valid workday on this calendar
-                let validStart = new Date(projectStart);
-                while (!this.isWorkDay(validStart, calendar)) {
-                    validStart.setDate(validStart.getDate() + 1);
-                }
-                earlyStart = validStart;
+            // Adjust project start to be a valid workday on this calendar for the baseline if no preds
+            while (!this.isWorkDay(earlyStart, calendar)) {
+                earlyStart.setDate(earlyStart.getDate() + 1);
             }
 
-            preds.forEach(dep => {
-                const src = actMap.get(dep.sourceId)!;
-                if (!src.earlyFinish) return;
+            let minEarlyFinish: Date | null = null;
+            const preds = predecessors.get(id) || [];
 
-                let potentialStart: Date;
+            for (const dep of preds) {
+                const src = actMap.get(dep.sourceId)!;
+                if (!src.earlyFinish || !src.earlyStart) continue;
+
                 const lag = (dep.lag || 0);
 
-                // Note: Relationships might span different calendars. 
-                // P6 usually uses Predecessor Calendar for lag? Or Successor? 
-                // Simplified: Use Successor Calendar for lag calculation.
-
                 if (dep.type === 'FS') {
-                    // Finish to Start: Start = Pred Finish + Lag + 1 day (next working day)
-                    // Actually, if we use inclusive dates:
-                    // Finish = Fri. Next Start = Mon.
-                    // We generate "Next working day after Finish" + Lag
-
                     let baseDate = new Date(src.earlyFinish);
-
-                    // Ensure baseDate is a valid working day for the start of the successor
                     while (!this.isWorkDay(baseDate, calendar)) {
                         baseDate.setDate(baseDate.getDate() + 1);
                     }
-
-                    // Add Lag
-                    potentialStart = this.addWorkDays(baseDate, lag, calendar);
-                    // Exclusive Logic: baseDate is already the 'next work day'. 
-                    // If Lag = 0, we start on baseDate. addWorkDays(d, 0) returns d. Correct.
-                    // So addWorkDays(baseDate, lag + 1) -> Returns date (lag) days after baseDate.
+                    const potentialStart = this.addWorkDays(baseDate, lag, calendar);
+                    if (potentialStart.getTime() > earlyStart.getTime()) earlyStart = potentialStart;
                 } else if (dep.type === 'SS') {
-                    // Start to Start: Start = Pred Start + Lag
-                    potentialStart = this.addWorkDays(src.earlyStart!, lag, calendar);
+                    const potentialStart = this.addWorkDays(src.earlyStart, lag, calendar);
+                    if (potentialStart.getTime() > earlyStart.getTime()) earlyStart = potentialStart;
                 } else if (dep.type === 'FF') {
-                    // Finish to Finish: Finish = Pred Finish + Lag
-                    // Derived Start = Finish - Duration
-                    // Finish to Finish: Finish = Pred Finish + Lag
-                    // Derived Start = Finish - Duration
-                    const finishDate = this.addWorkDays(src.earlyFinish, lag, calendar);
-                    // Back calculate Start
-                    potentialStart = this.subtractWorkDays(finishDate, act.duration, calendar);
-                } else {
-                    // SF not fully implemented, treat as FS
-                    potentialStart = new Date(src.earlyFinish);
+                    const potentialFinish = this.addWorkDays(src.earlyFinish, lag, calendar);
+                    if (!minEarlyFinish || potentialFinish.getTime() > minEarlyFinish.getTime()) minEarlyFinish = potentialFinish;
+                } else if (dep.type === 'SF') {
+                    const potentialFinish = this.addWorkDays(src.earlyStart, lag, calendar);
+                    if (!minEarlyFinish || potentialFinish.getTime() > minEarlyFinish.getTime()) minEarlyFinish = potentialFinish;
                 }
-
-                if (potentialStart > earlyStart) {
-                    earlyStart = potentialStart;
-                }
-            });
+            }
 
             act.earlyStart = earlyStart;
             act.startDate = earlyStart;
 
-            // Calculate Finish
-            act.earlyFinish = this.addWorkDays(earlyStart, act.duration, calendar);
+            // Calculate Finish: Max of (Start + Duration) and any FF/SF constraints
+            const standardFinish = this.addWorkDays(earlyStart, act.duration, calendar);
+            act.earlyFinish = (minEarlyFinish && minEarlyFinish.getTime() > standardFinish.getTime()) ? minEarlyFinish : standardFinish;
         });
 
         // 5. Backward Pass (Late Dates & Float)
@@ -1652,6 +1630,11 @@ export class PlanningService {
             etc: Math.round(etc),
             vac: Math.round(vac)
         };
+    }
+
+    updateProjectStartDate(newDate: Date) {
+        this.state.update(s => ({ ...s, projectStartDate: newDate }));
+        this.scheduleProject();
     }
 }
 

@@ -24,7 +24,8 @@
                 </div>
                 <div class="info-row">
                     <label>Start Date:</label>
-                    <span>{{ projectStartDate() | date:'MMM d, y' }}</span>
+                    <input type="date" [ngModel]="projectStartDate() | date:'yyyy-MM-dd'"
+                        (ngModelChange)="updateProjectStartDate($event)" class="project-date-input">
                 </div>
                 <div class="info-row">
                     <label>End Date:</label>
