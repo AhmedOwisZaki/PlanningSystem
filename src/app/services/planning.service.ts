@@ -154,6 +154,51 @@ export class PlanningService {
         return defaultCal;
     }
 
+    /**
+     * Normalizes a date to local midnight (00:00:00) without timezone shifts.
+     * Use this whenever parsing dates from inputs or strings.
+     */
+    public parseProjectDate(val: any): Date {
+        if (!val) return new Date();
+
+        // If it's a string, strip any time/timezone part to focus on YYYY-MM-DD
+        if (typeof val === 'string') {
+            // Strip T00:00:00.000Z or similar
+            const cleanStr = val.split('T')[0];
+            const isoMatch = cleanStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (isoMatch) {
+                const year = parseInt(isoMatch[1], 10);
+                const month = parseInt(isoMatch[2], 10) - 1; // 0-based
+                const day = parseInt(isoMatch[3], 10);
+                return new Date(year, month, day, 0, 0, 0, 0);
+            }
+        }
+
+        const d = new Date(val);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    }
+
+    /**
+     * Calculates the integer difference in days between two dates.
+     * Uses UTC to ignore Daylight Saving Time (DST) jumps.
+     */
+    public getDaysDiff(d1: Date, d2: Date): number {
+        const utc1 = Date.UTC(d1.getFullYear(), d1.getMonth(), d1.getDate());
+        const utc2 = Date.UTC(d2.getFullYear(), d2.getMonth(), d2.getDate());
+        return Math.round((utc2 - utc1) / (1000 * 60 * 60 * 24));
+    }
+
+    /**
+     * Converts a local date to a Date object representing UTC Midnight of that same day.
+     * This is crucial for sending dates to the API so they are stored as YYYY-MM-DDT00:00:00Z.
+     */
+    public toApiDate(d: Date | string | undefined | null): Date | undefined {
+        if (!d) return undefined;
+        const date = new Date(d);
+        return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0));
+    }
+
     private isWorkDay(date: Date, calendar: Calendar): boolean {
         const dayOfWeek = date.getDay(); // 0 = Sun, 6 = Sat
         if (!calendar.workDays[dayOfWeek]) return false;
@@ -249,22 +294,22 @@ export class PlanningService {
                     projectId: project.id,
                     projectName: project.name || project.projectName, // Use name if available, fallback to projectName
                     projectDescription: project.description,
-                    projectStartDate: new Date(project.startDate),
-                    projectEndDate: new Date(project.endDate),
+                    projectStartDate: this.parseProjectDate(project.startDate),
+                    projectEndDate: this.parseProjectDate(project.endDate),
                     defaultCalendarId: project.defaultCalendarId,
                     activities: data.activities.map((a: any) => ({
                         ...a,
                         id: Number(a.id),
                         parentId: a.parentId ? Number(a.parentId) : null,
-                        startDate: new Date(a.startDate),
-                        earlyStart: a.earlyStart ? new Date(a.earlyStart) : undefined,
-                        earlyFinish: a.earlyFinish ? new Date(a.earlyFinish) : undefined,
-                        lateStart: a.lateStart ? new Date(a.lateStart) : undefined,
-                        lateFinish: a.lateFinish ? new Date(a.lateFinish) : undefined,
-                        baselineStartDate: a.baselineStartDate ? new Date(a.baselineStartDate) : undefined,
-                        baselineEndDate: a.baselineEndDate ? new Date(a.baselineEndDate) : undefined,
-                        actualStart: a.actualStart ? new Date(a.actualStart) : undefined,
-                        actualFinish: a.actualFinish ? new Date(a.actualFinish) : undefined,
+                        startDate: this.parseProjectDate(a.startDate),
+                        earlyStart: a.earlyStart ? this.parseProjectDate(a.earlyStart) : undefined,
+                        earlyFinish: a.earlyFinish ? this.parseProjectDate(a.earlyFinish) : undefined,
+                        lateStart: a.lateStart ? this.parseProjectDate(a.lateStart) : undefined,
+                        lateFinish: a.lateFinish ? this.parseProjectDate(a.lateFinish) : undefined,
+                        baselineStartDate: a.baselineStartDate ? this.parseProjectDate(a.baselineStartDate) : undefined,
+                        baselineEndDate: a.baselineEndDate ? this.parseProjectDate(a.baselineEndDate) : undefined,
+                        actualStart: a.actualStart ? this.parseProjectDate(a.actualStart) : undefined,
+                        actualFinish: a.actualFinish ? this.parseProjectDate(a.actualFinish) : undefined,
                         isExpanded: true
                     })),
                     dependencies: data.dependencies,
@@ -488,11 +533,21 @@ export class PlanningService {
     updateActivity(updatedActivity: Activity) {
         // Enforce date consistency immediately for UI feedback
         const cal = this.getCalendar(updatedActivity.calendarId);
-        updatedActivity.earlyStart = new Date(updatedActivity.startDate);
+        updatedActivity.earlyStart = this.parseProjectDate(updatedActivity.startDate);
         updatedActivity.earlyFinish = this.addWorkDays(updatedActivity.earlyStart, updatedActivity.duration, cal);
 
         // Optimistic update? Or wait? Let's wait for now to be safe.
-        this.apiService.updateActivity(updatedActivity.id, updatedActivity).subscribe({
+        // Prepare for API with UTC normalization
+        const apiActivity = {
+            ...updatedActivity,
+            startDate: this.toApiDate(updatedActivity.startDate),
+            baselineStartDate: this.toApiDate(updatedActivity.baselineStartDate),
+            baselineEndDate: this.toApiDate(updatedActivity.baselineEndDate),
+            actualStart: this.toApiDate(updatedActivity.actualStart),
+            actualFinish: this.toApiDate(updatedActivity.actualFinish)
+        };
+
+        this.apiService.updateActivity(updatedActivity.id, apiActivity).subscribe({
             next: (savedProjectActivity) => {
                 this.state.update(current => ({
                     ...current,
@@ -1601,7 +1656,8 @@ export class PlanningService {
 
         this.apiService.updateProject(current.projectId, {
             ...current,
-            startDate: cleanDate
+            startDate: this.toApiDate(cleanDate),
+            endDate: this.toApiDate(current.projectEndDate)
         }).subscribe({
             next: (updatedProject) => {
                 this.state.update(s => ({
@@ -1618,25 +1674,37 @@ export class PlanningService {
         const projectId = this.state().projectId;
         if (!projectId) return;
 
-        // Option B: Prepare baseline activities from current frontend state
-        // This captures the exact current schedule without modifying it
-        const baselineActivities = this.state().activities.map(activity => ({
-            baselineId: 0, // Will be set by backend
-            activityId: activity.id,
-            startDate: activity.earlyStart || activity.startDate,
-            finishDate: activity.earlyFinish || new Date(activity.startDate.getTime() + activity.duration * 24 * 60 * 60 * 1000),
-            duration: activity.duration
-        }));
+        // Force a schedule refresh before capturing to ensure all dates are current
+        this.scheduleProject();
+
+        // Prepare baseline activities from current frontend state
+        // This captures the exact current schedule calculated by the service
+        const activities = this.state().activities;
+        const baselineActivities = activities.map(activity => {
+            const cal = this.getCalendar(activity.calendarId);
+            // Capture baseline start as the current planned start (synced with earlyStart)
+            const start = this.parseProjectDate(activity.startDate);
+            // Capture baseline finish as the current planned finish (earlyFinish result)
+            const finish = this.parseProjectDate(activity.earlyFinish || this.addWorkDays(new Date(start), activity.duration, cal));
+
+            return {
+                baselineId: 0,
+                activityId: activity.id,
+                // Normalize to UTC Midnight for accurate persistence
+                startDate: this.toApiDate(start),
+                finishDate: this.toApiDate(finish),
+                duration: activity.duration
+            };
+        });
 
         this.apiService.createBaseline(projectId, name, baselineActivities).subscribe(newBaseline => {
             this.state.update(s => ({
                 ...s,
                 baselines: [...(s.baselines || []), { ...newBaseline, createdAt: new Date(newBaseline.createdAt) }]
             }));
-            // If it's the first one and it's primary, reload to get baseline dates synced
-            if (newBaseline.isPrimary) {
-                this.loadFullProject(projectId).subscribe();
-            }
+
+            // Automatically apply the newly created baseline as primary
+            this.setPrimaryBaseline(newBaseline.id);
         });
     }
 
@@ -1656,7 +1724,10 @@ export class PlanningService {
             // Reload project to update all activity baseline dates
             const projectId = this.state().projectId;
             if (projectId) {
-                this.loadFullProject(projectId).subscribe();
+                this.loadFullProject(projectId).subscribe(() => {
+                    // Automatically schedule after reload to ensure active bars align with baseline/actuals
+                    this.scheduleProject();
+                });
             }
         });
     }

@@ -243,24 +243,21 @@ export class GanttComponent {
 
   // Computed timeline start date with 2-day buffer
   ganttStartDate = computed(() => {
-    const projectStart = new Date(this.planningService.projectStartDate()).getTime();
+    const projectStartVal = this.planningService.projectStartDate();
+    const projectStart = projectStartVal ? new Date(projectStartVal).getTime() : new Date().getTime();
     const activities = this.activities();
     let minDate = projectStart;
 
     activities.forEach(a => {
-      if (a.startDate) {
-        const s = new Date(a.startDate).getTime();
-        if (s < minDate) minDate = s;
-      }
-      if (a.earlyStart) {
-        const es = new Date(a.earlyStart).getTime();
-        if (es < minDate) minDate = es;
-      }
+      const s = a.startDate ? new Date(a.startDate).getTime() : null;
+      if (s !== null && s < minDate) minDate = s;
+      const es = a.earlyStart ? new Date(a.earlyStart).getTime() : null;
+      if (es !== null && es < minDate) minDate = es;
     });
 
-    const start = new Date(minDate);
+    const start = this.planningService.parseProjectDate(minDate);
+    if (isNaN(start.getTime())) return new Date(); // Fallback to today
     start.setDate(start.getDate() - 2);
-    start.setHours(0, 0, 0, 0); // Normalize to midnight
     return start;
   });
 
@@ -268,10 +265,13 @@ export class GanttComponent {
   totalDays = computed(() => {
     const start = this.ganttStartDate();
     const end = this.planningService.projectEndDate();
+    if (!start || isNaN(start.getTime()) || !end || isNaN(end.getTime())) {
+      return 1000;
+    }
+
     const diffTime = Math.abs(end.getTime() - start.getTime());
-    // Add a generous buffer (2 years) so zooming out doesn't reveal white space on the right
     const projectDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    return projectDays + 730;
+    return isNaN(projectDays) ? 1000 : projectDays + 730;
   });
 
   timelineWidth = computed(() => this.totalDays() * this.dayWidth * this.zoomLevel());
@@ -322,22 +322,28 @@ export class GanttComponent {
 
   // Helper to position tasks
   getTaskLeft(activity: any): number {
-    const start = new Date(this.ganttStartDate());
-    start.setHours(0, 0, 0, 0); // Normalize to midnight
-    const actStart = activity.earlyStart ? new Date(activity.earlyStart) : new Date(activity.startDate);
-    const diffTime = actStart.getTime() - start.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays * this.dayWidth * this.zoomLevel();
+    const start = this.ganttStartDate();
+    const rawStart = activity.earlyStart || activity.startDate;
+    if (!rawStart || !start || isNaN(start.getTime())) return 0;
+
+    const actStart = this.planningService.parseProjectDate(rawStart);
+    if (isNaN(actStart.getTime())) return 0;
+
+    const diffDays = this.planningService.getDaysDiff(start, actStart);
+    return (isNaN(diffDays) ? 0 : diffDays) * this.dayWidth * this.zoomLevel();
   }
 
   getTaskWidth(activity: any): number {
-    const start = activity.earlyStart ? new Date(activity.earlyStart) : new Date(activity.startDate);
-    const end = activity.earlyFinish ? new Date(activity.earlyFinish) : (activity.endDate ? new Date(activity.endDate) : null);
+    const rawStart = activity.earlyStart || activity.startDate;
+    const rawEnd = activity.earlyFinish || activity.endDate;
 
-    if (start && end) {
-      const diffTime = end.getTime() - start.getTime();
-      const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return days * this.dayWidth * this.zoomLevel();
+    if (rawStart && rawEnd) {
+      const start = this.planningService.parseProjectDate(rawStart);
+      const end = this.planningService.parseProjectDate(rawEnd);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        const days = this.planningService.getDaysDiff(start, end);
+        if (!isNaN(days)) return days * this.dayWidth * this.zoomLevel();
+      }
     }
 
     return (activity.duration || 1) * this.dayWidth * this.zoomLevel();
@@ -345,25 +351,18 @@ export class GanttComponent {
 
   getBaselineLeft(date: Date): number {
     if (!date) return 0;
-    const start = new Date(this.ganttStartDate());
-    start.setHours(0, 0, 0, 0);
-    const blStart = new Date(date);
-    blStart.setHours(0, 0, 0, 0);
-    const diffTime = blStart.getTime() - start.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const start = this.ganttStartDate();
+    const blStart = this.planningService.parseProjectDate(date);
+    const diffDays = this.planningService.getDaysDiff(start, blStart);
     return diffDays * this.dayWidth * this.zoomLevel();
   }
 
   getBaselineWidth(start: Date, end: Date): number {
     if (!start || !end) return 0;
-    const s = new Date(start);
-    s.setHours(0, 0, 0, 0);
-    const e = new Date(end);
-    e.setHours(0, 0, 0, 0);
-
-    // Total days inclusive of start/end boundaries
-    const diffTime = e.getTime() - s.getTime();
-    const days = Math.round(diffTime / (1000 * 60 * 60 * 24));
+    const s = this.planningService.parseProjectDate(start);
+    const e = this.planningService.parseProjectDate(end);
+    const days = this.planningService.getDaysDiff(s, e);
+    // Baseline width should be at least 1 day if dates are present
     return (days || 1) * this.dayWidth * this.zoomLevel();
   }
 
@@ -396,10 +395,9 @@ export class GanttComponent {
     return this.planningService.isParent(activity.id);
   }
 
-  getDisplayFinish(activity: any): Date | null {
-    const rawFinish = activity.lateFinish || activity.earlyFinish || activity.endDate;
-    if (!rawFinish) return null;
-    const d = new Date(rawFinish);
+  toInclusiveDate(val: any): Date | null {
+    if (!val) return null;
+    const d = new Date(val);
     d.setDate(d.getDate() - 1);
     return d;
   }
@@ -937,35 +935,35 @@ export class GanttComponent {
   onActualStartChange(activity: any, val: string) {
     this.planningService.updateActivity({
       ...activity,
-      actualStart: val ? new Date(val) : undefined
+      actualStart: val ? this.planningService.parseProjectDate(val) : undefined
     });
   }
 
   onActualFinishChange(activity: any, val: string) {
     this.planningService.updateActivity({
       ...activity,
-      actualFinish: val ? new Date(val) : undefined
+      actualFinish: val ? this.planningService.parseProjectDate(val) : undefined
     });
   }
 
   onBaselineStartChange(activity: any, val: string) {
     this.planningService.updateActivity({
       ...activity,
-      baselineStartDate: val ? new Date(val) : undefined
+      baselineStartDate: val ? this.planningService.parseProjectDate(val) : undefined
     });
   }
 
   onBaselineFinishChange(activity: any, val: string) {
     this.planningService.updateActivity({
       ...activity,
-      baselineEndDate: val ? new Date(val) : undefined
+      baselineEndDate: val ? this.planningService.parseProjectDate(val) : undefined
     });
   }
 
   onStartDateChange(activity: any, val: string) {
     this.planningService.updateActivity({
       ...activity,
-      startDate: val ? new Date(val) : undefined
+      startDate: val ? this.planningService.parseProjectDate(val) : undefined
     });
   }
 

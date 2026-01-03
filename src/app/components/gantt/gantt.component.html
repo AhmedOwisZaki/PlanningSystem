@@ -192,11 +192,14 @@
                         <div *ngSwitchCase="'start'" style="width: 100%; text-align: center;">
                             <span>{{ activity.startDate | date:'dd-MMM-yy' }}</span>
                         </div>
-                        <span *ngSwitchCase="'finish'">{{ getDisplayFinish(activity) | date:'dd-MMM-yy' }}</span>
+                        <span *ngSwitchCase="'finish'">{{ toInclusiveDate(activity.earlyFinish || activity.endDate) |
+                            date:'dd-MMM-yy' }}</span>
                         <span *ngSwitchCase="'earlyStart'">{{ activity.earlyStart | date:'dd-MMM-yy' }}</span>
-                        <span *ngSwitchCase="'earlyFinish'">{{ activity.earlyFinish | date:'dd-MMM-yy' }}</span>
+                        <span *ngSwitchCase="'earlyFinish'">{{ toInclusiveDate(activity.earlyFinish) | date:'dd-MMM-yy'
+                            }}</span>
                         <span *ngSwitchCase="'lateStart'">{{ activity.lateStart | date:'dd-MMM-yy' }}</span>
-                        <span *ngSwitchCase="'lateFinish'">{{ activity.lateFinish | date:'dd-MMM-yy' }}</span>
+                        <span *ngSwitchCase="'lateFinish'">{{ toInclusiveDate(activity.lateFinish) | date:'dd-MMM-yy'
+                            }}</span>
                         <div *ngSwitchCase="'blStart'" style="width: 100%;">
                             <input type="date" [ngModel]="activity.baselineStartDate | date:'yyyy-MM-dd'"
                                 (ngModelChange)="onBaselineStartChange(activity, $event)" class="grid-date-input"
@@ -206,6 +209,8 @@
                             <input type="date" [ngModel]="activity.baselineEndDate | date:'yyyy-MM-dd'"
                                 (ngModelChange)="onBaselineFinishChange(activity, $event)" class="grid-date-input"
                                 placeholder="Not set">
+                            <span style="font-size: 0.8em; color: #666;">({{ toInclusiveDate(activity.baselineEndDate) |
+                                date:'dd-MMM-yy' }})</span>
                         </div>
                         <div *ngSwitchCase="'actualStart'" style="width: 100%;">
                             <input type="date" [ngModel]="activity.actualStart | date:'yyyy-MM-dd'"
@@ -216,6 +221,8 @@
                             <input type="date" [ngModel]="activity.actualFinish | date:'yyyy-MM-dd'"
                                 (ngModelChange)="onActualFinishChange(activity, $event)" class="grid-date-input"
                                 placeholder="Not set">
+                            <span style="font-size: 0.8em; color: #666;">({{ toInclusiveDate(activity.actualFinish) |
+                                date:'dd-MMM-yy' }})</span>
                         </div>
 
                         <!-- Numbers -->
