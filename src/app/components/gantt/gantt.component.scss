@@ -415,6 +415,12 @@
     background: #FF0000 !important;
     border: 1px solid #000;
   }
+
+  &.completed {
+    background: #0738db !important;
+    /* Blue */
+    border: 1px solid #000;
+  }
 }
 
 .milestone-diamond {
@@ -444,6 +450,12 @@
 
   &.critical {
     background: #FF0000 !important;
+    border-color: #000;
+  }
+
+  &.completed {
+    background: #228be6 !important;
+    /* Blue */
     border-color: #000;
   }
 

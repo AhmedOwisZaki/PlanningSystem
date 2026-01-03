@@ -828,12 +828,23 @@ export class PlanningService {
                 }
             }
 
+            // PRIORITIZE ACTUALS: If actualStart exists, override earlyStart
+            if (act.actualStart) {
+                earlyStart = new Date(act.actualStart);
+            }
+
             act.earlyStart = earlyStart;
             act.startDate = earlyStart;
 
             // Calculate Finish: Max of (Start + Duration) and any FF/SF constraints
             const standardFinish = this.addWorkDays(earlyStart, act.duration, calendar);
-            act.earlyFinish = (minEarlyFinish && minEarlyFinish.getTime() > standardFinish.getTime()) ? minEarlyFinish : standardFinish;
+            let earlyFinish = (minEarlyFinish && minEarlyFinish.getTime() > standardFinish.getTime()) ? minEarlyFinish : standardFinish;
+
+            // PRIORITIZE ACTUALS: If actualFinish exists, override earlyFinish
+            if (act.actualFinish) {
+                earlyFinish = new Date(act.actualFinish);
+            }
+            act.earlyFinish = earlyFinish;
         });
 
         // 5. Backward Pass (Late Dates & Float)
@@ -904,9 +915,20 @@ export class PlanningService {
                 }
             });
 
+            // PRIORITIZE ACTUALS: If actualFinish exists, override lateFinish
+            if (act.actualFinish) {
+                lateFinish = new Date(act.actualFinish);
+            }
             act.lateFinish = lateFinish;
+
             // Calculate Late Start
-            act.lateStart = this.subtractWorkDays(lateFinish, act.duration, calendar);
+            let lateStart = this.subtractWorkDays(lateFinish, act.duration, calendar);
+
+            // PRIORITIZE ACTUALS: If actualStart exists, override lateStart
+            if (act.actualStart) {
+                lateStart = new Date(act.actualStart);
+            }
+            act.lateStart = lateStart;
 
             const diffTime = act.lateStart.getTime() - act.earlyStart!.getTime();
             act.totalFloat = Math.round(diffTime / (1000 * 3600 * 24));

@@ -339,7 +339,9 @@
                             <div class="milestone-diamond"
                                 *ngIf="activity.type === 'StartMilestone' || activity.type === 'FinishMilestone'"
                                 [class.selected]="selectedActivity()?.id === activity.id"
-                                [class.critical]="activity.isCritical" (mousedown)="onTaskMouseDown($event, activity)"
+                                [class.critical]="activity.isCritical"
+                                [class.completed]="activity.actualStart && activity.actualFinish"
+                                (mousedown)="onTaskMouseDown($event, activity)"
                                 (click)="selectActivity(activity, $event)" [style.left.px]="getTaskLeft(activity)"
                                 [style.top.px]="5">
                                 <span class="task-label">{{ activity.name }}</span>
@@ -351,7 +353,9 @@
                                 [class.parent-task-bar]="isParentActivity(activity)"
                                 [class.zoom-large]="zoomLevel() > .5"
                                 [class.selected]="selectedActivity()?.id === activity.id"
-                                [class.critical]="activity.isCritical" (mousedown)="onTaskMouseDown($event, activity)"
+                                [class.critical]="activity.isCritical"
+                                [class.completed]="activity.actualStart && activity.actualFinish"
+                                (mousedown)="onTaskMouseDown($event, activity)"
                                 (click)="selectActivity(activity, $event)"
                                 (dblclick)="onActivityDoubleClick(activity, $event)"
                                 [style.left.px]="getTaskLeft(activity)" [style.width.px]="getTaskWidth(activity)">
