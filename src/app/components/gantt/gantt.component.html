@@ -189,14 +189,35 @@
                         <span *ngSwitchCase="'dur'">{{ activity.duration }}</span>
 
                         <!-- Dates -->
-                        <span *ngSwitchCase="'start'">{{ activity.startDate | date:'dd-MMM-yy' }}</span>
+                        <div *ngSwitchCase="'start'" style="width: 100%;">
+                            <input type="date" [ngModel]="activity.startDate | date:'yyyy-MM-dd'"
+                                (ngModelChange)="onStartDateChange(activity, $event)" class="grid-date-input">
+                        </div>
                         <span *ngSwitchCase="'finish'">{{ getDisplayFinish(activity) | date:'dd-MMM-yy' }}</span>
                         <span *ngSwitchCase="'earlyStart'">{{ activity.earlyStart | date:'dd-MMM-yy' }}</span>
                         <span *ngSwitchCase="'earlyFinish'">{{ activity.earlyFinish | date:'dd-MMM-yy' }}</span>
                         <span *ngSwitchCase="'lateStart'">{{ activity.lateStart | date:'dd-MMM-yy' }}</span>
                         <span *ngSwitchCase="'lateFinish'">{{ activity.lateFinish | date:'dd-MMM-yy' }}</span>
-                        <span *ngSwitchCase="'blStart'">{{ activity.baselineStartDate | date:'dd-MMM-yy' }}</span>
-                        <span *ngSwitchCase="'blFinish'">{{ activity.baselineEndDate | date:'dd-MMM-yy' }}</span>
+                        <div *ngSwitchCase="'blStart'" style="width: 100%;">
+                            <input type="date" [ngModel]="activity.baselineStartDate | date:'yyyy-MM-dd'"
+                                (ngModelChange)="onBaselineStartChange(activity, $event)" class="grid-date-input"
+                                placeholder="Not set">
+                        </div>
+                        <div *ngSwitchCase="'blFinish'" style="width: 100%;">
+                            <input type="date" [ngModel]="activity.baselineEndDate | date:'yyyy-MM-dd'"
+                                (ngModelChange)="onBaselineFinishChange(activity, $event)" class="grid-date-input"
+                                placeholder="Not set">
+                        </div>
+                        <div *ngSwitchCase="'actualStart'" style="width: 100%;">
+                            <input type="date" [ngModel]="activity.actualStart | date:'yyyy-MM-dd'"
+                                (ngModelChange)="onActualStartChange(activity, $event)" class="grid-date-input"
+                                placeholder="Not set">
+                        </div>
+                        <div *ngSwitchCase="'actualFinish'" style="width: 100%;">
+                            <input type="date" [ngModel]="activity.actualFinish | date:'yyyy-MM-dd'"
+                                (ngModelChange)="onActualFinishChange(activity, $event)" class="grid-date-input"
+                                placeholder="Not set">
+                        </div>
 
                         <!-- Numbers -->
                         <span *ngSwitchCase="'percent'">{{ activity.percentComplete }}%</span>
@@ -306,6 +327,12 @@
                             <div class="baseline-bar" *ngIf="activity.baselineStartDate"
                                 [style.left.px]="getBaselineLeft(activity.baselineStartDate)"
                                 [style.width.px]="getBaselineWidth(activity.baselineStartDate, activity.baselineEndDate)">
+                            </div>
+
+                            <!-- Baseline Milestone Diamond -->
+                            <div class="baseline-milestone-diamond"
+                                *ngIf="(activity.type === 'StartMilestone' || activity.type === 'FinishMilestone') && activity.baselineStartDate"
+                                [style.left.px]="getBaselineLeft(activity.baselineStartDate)" [style.top.px]="18">
                             </div>
 
                             <!-- Milestone Diamond -->

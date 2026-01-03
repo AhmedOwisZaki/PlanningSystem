@@ -8,6 +8,7 @@
         <div class="tab" [class.active]="activeTab === 'resources'" (click)="toggleTab('resources')">Resources</div>
         <div class="tab" [class.active]="activeTab === 'calendars'" (click)="toggleTab('calendars')">Calendars</div>
         <div class="tab" [class.active]="activeTab === 'codes'" (click)="toggleTab('codes')">Codes</div>
+        <div class="tab" [class.active]="activeTab === 'baselines'" (click)="toggleTab('baselines')">Baselines</div>
     </div>
 
     <!-- Tab Content -->
@@ -35,6 +36,22 @@
                     <label>Total Activities:</label>
                     <span>{{ activities().length }}</span>
                 </div>
+                <div class="info-row">
+                    <label>Current Baseline:</label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <select [ngModel]="primaryBaseline()?.id" (ngModelChange)="setPrimaryBaseline($event)"
+                            class="form-control" style="max-width: 200px;">
+                            <option [ngValue]="undefined">None (Current Schedule)</option>
+                            <option *ngFor="let b of baselines()" [ngValue]="b.id">
+                                {{ b.name }} ({{ b.createdAt | date:'shortDate' }})
+                            </option>
+                        </select>
+                        <button class="btn-action-small" *ngIf="primaryBaseline()" (click)="unapplyBaselines()"
+                            style="background: #f1f3f5; color: #495057; border: 1px solid #ced4da; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; cursor: pointer;">
+                            Unapply All
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <div class="export-section">
@@ -45,9 +62,9 @@
             </div>
 
             <div class="evm-section">
-                <h4>Baselines</h4>
-                <button class="btn-baseline" (click)="setBaseline()">
-                    📏 Set Project Baseline
+                <h4>Analysis</h4>
+                <button class="btn-export" (click)="openSCurves()" style="background: #2b8a3e; margin-bottom: 8px;">
+                    📈 View Project S-Curves
                 </button>
                 <p class="hint-text">Snapshots current schedule as the target comparison.</p>
             </div>
@@ -485,6 +502,78 @@
                         <span class="val-name">{{ val.value }}</span>
                         <button class="btn-icon delete-small"
                             (click)="deleteCodeValue(selectedCodeDef().id, val.id)">×</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BASELINES TAB -->
+        <div *ngIf="activeTab === 'baselines'" class="tab-pane baselines-pane">
+            <h3>Baseline Management</h3>
+            <p class="pane-description" style="color: #666; font-size: 0.9rem; margin-bottom: 1rem;">
+                Capture and manage project schedule snapshots.
+            </p>
+
+            <div class="baseline-actions" style="display: flex; gap: 8px; margin-bottom: 20px;">
+                <input type="text" [(ngModel)]="newBaselineName" placeholder="Baseline Name (e.g. Revision 0)"
+                    class="form-control" style="flex: 1; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px;"
+                    (keyup.enter)="createBaseline()">
+                <button class="btn-add-feature" (click)="createBaseline()" [disabled]="!newBaselineName">
+                    Capture New Baseline
+                </button>
+                <div style="flex: 1;"></div>
+                <button class="btn-action-small" (click)="unapplyBaselines()" *ngIf="primaryBaseline()"
+                    style="background: #f1f3f5; color: #495057; border: 1px solid #ced4da; padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; cursor: pointer;">
+                    Unapply Comparison
+                </button>
+                <button class="btn-action-small" (click)="clearAllBaselineDates()"
+                    style="background: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; cursor: pointer;">
+                    Clear All Baseline Dates
+                </button>
+            </div>
+
+            <div class="baselines-list">
+                <div class="no-data" *ngIf="!baselines() || baselines().length === 0"
+                    style="text-align: center; padding: 2rem; color: #999;">
+                    No baselines captured yet.
+                </div>
+
+                <div class="baseline-card" *ngFor="let b of baselines()"
+                    [style.border-left]="b.isPrimary ? '4px solid #339af0' : '4px solid transparent'"
+                    style="background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                    <div class="baseline-info" style="display: flex; flex-direction: column; gap: 8px; flex: 1;">
+                        <input type="text" [ngModel]="b.name" (ngModelChange)="onBaselineNameChange(b, $event)"
+                            style="font-weight: 600; color: #333; border: 1px solid transparent; background: transparent; padding: 2px 4px; border-radius: 4px; font-size: 1rem; width: 100%;"
+                            (focus)="$event.target.style.background='white'; $event.target.style.borderColor='#dee2e6'"
+                            (blur)="$event.target.style.background='transparent'; $event.target.style.borderColor='transparent'">
+
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 0.8rem; color: #888; white-space: nowrap;">Captured:</span>
+                            <input type="datetime-local" [ngModel]="b.createdAt | date:'yyyy-MM-ddTHH:mm'"
+                                (ngModelChange)="onBaselineDateChange(b, $event)"
+                                style="font-size: 0.8rem; color: #666; border: 1px solid transparent; background: transparent; padding: 2px 4px; border-radius: 4px;"
+                                (focus)="$event.target.style.background='white'; $event.target.style.borderColor='#dee2e6'"
+                                (blur)="$event.target.style.background='transparent'; $event.target.style.borderColor='transparent'">
+                        </div>
+
+                        <span class="primary-badge" *ngIf="b.isPrimary"
+                            style="font-size: 0.7rem; background: #e7f5ff; color: #1c7ed6; padding: 2px 12px; border-radius: 12px; width: fit-content; font-weight: 600; border: 1px solid #a5d8ff;">
+                            Primary
+                        </span>
+                    </div>
+                    <div class="baseline-controls" style="display: flex; gap: 8px; align-items: center;">
+                        <button class="btn-action-small" (click)="setPrimaryBaseline(b.id)" *ngIf="!b.isPrimary"
+                            style="background: #339af0; color: white; border: 1px solid #228be6; padding: 4px 12px; border-radius: 4px; font-size: 0.8rem; cursor: pointer; font-weight: 500;">
+                            Apply Baseline
+                        </button>
+                        <span *ngIf="b.isPrimary"
+                            style="color: #2f9e44; font-weight: bold; font-size: 0.85rem; display: flex; align-items: center; gap: 4px;">
+                            <span style="font-size: 1.1rem;">✓</span> Applied
+                        </span>
+                        <button class="btn-icon delete" (click)="deleteBaseline(b.id)"
+                            style="background: none; border: none; cursor: pointer; opacity: 0.6; transition: opacity 0.2s;">
+                            🗑️
+                        </button>
                     </div>
                 </div>
             </div>

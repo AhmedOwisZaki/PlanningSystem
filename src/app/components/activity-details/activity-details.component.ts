@@ -86,6 +86,42 @@ export class ActivityDetailsComponent implements OnDestroy {
         }
     }
 
+    onActualStartChange(val: string) {
+        if (this.selectedActivity()) {
+            this.planningService.updateActivity({
+                ...this.selectedActivity()!,
+                actualStart: val ? new Date(val) : undefined
+            });
+        }
+    }
+
+    onActualFinishChange(val: string) {
+        if (this.selectedActivity()) {
+            this.planningService.updateActivity({
+                ...this.selectedActivity()!,
+                actualFinish: val ? new Date(val) : undefined
+            });
+        }
+    }
+
+    onBaselineStartChange(val: string) {
+        if (this.selectedActivity()) {
+            this.planningService.updateActivity({
+                ...this.selectedActivity()!,
+                baselineStartDate: val ? new Date(val) : undefined
+            });
+        }
+    }
+
+    onBaselineFinishChange(val: string) {
+        if (this.selectedActivity()) {
+            this.planningService.updateActivity({
+                ...this.selectedActivity()!,
+                baselineEndDate: val ? new Date(val) : undefined
+            });
+        }
+    }
+
     updateLag(depId: number, event: Event) {
         const input = event.target as HTMLInputElement;
         const lag = parseInt(input.value, 10);

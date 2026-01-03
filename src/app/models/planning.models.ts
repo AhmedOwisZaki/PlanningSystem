@@ -19,6 +19,8 @@ export interface Activity {
     totalFloat?: number;
     freeFloat?: number;
     isCritical?: boolean;
+    actualStart?: Date;
+    actualFinish?: Date;
     // Baseline Fields
     baselineStartDate?: Date;
     baselineEndDate?: Date;
@@ -104,6 +106,24 @@ export interface ProjectState {
 
     // Activity Codes
     activityCodeDefinitions?: ActivityCodeDefinition[];
+    baselines?: Baseline[];
+}
+
+export interface Baseline {
+    id: number;
+    name: string;
+    createdAt: Date;
+    projectId: number;
+    isPrimary: boolean;
+}
+
+export interface BaselineActivity {
+    id: number;
+    baselineId: number;
+    activityId: number;
+    startDate: Date;
+    finishDate: Date;
+    duration: number;
 }
 
 export interface ActivityCodeDefinition {

@@ -18,7 +18,7 @@ export class EditorComponent {
     xerExporter = inject(XerExporterService);
     el = inject(ElementRef);
 
-    activeTab: 'project' | 'resources' | 'calendars' | 'codes' = 'resources';
+    activeTab: 'project' | 'resources' | 'calendars' | 'codes' | 'baselines' = 'resources';
     resources = this.planningService.resources;
     resourceTypes = this.planningService.resourceTypes;
 
@@ -34,6 +34,9 @@ export class EditorComponent {
 
     // Activity Codes
     codeDefinitions = computed(() => this.planningService.state().activityCodeDefinitions || []);
+    baselines = computed(() => this.planningService.state().baselines || []);
+    primaryBaseline = computed(() => this.baselines().find(b => b.isPrimary));
+    newBaselineName = ''; // Bound via ngModel
     selectedCodeDef = signal<any | null>(null);
     newCodeDefName = signal('');
     newCodeValue = signal('');
@@ -148,7 +151,7 @@ export class EditorComponent {
         }
     }
 
-    toggleTab(tab: 'project' | 'resources' | 'calendars' | 'codes') {
+    toggleTab(tab: 'project' | 'resources' | 'calendars' | 'codes' | 'baselines') {
         this.activeTab = tab;
         this.selectedResource.set(null); // Clear selection when switching tabs if desired
         this.showProfile.set(false);
@@ -291,6 +294,46 @@ export class EditorComponent {
         }
     }
 
+    createBaseline() {
+        if (!this.newBaselineName) return;
+        this.planningService.createBaseline(this.newBaselineName);
+        this.newBaselineName = '';
+    }
+
+    deleteBaseline(id: number) {
+        if (confirm('Are you sure you want to delete this baseline?')) {
+            this.planningService.deleteBaseline(id);
+        }
+    }
+
+    setPrimaryBaseline(id: number) {
+        this.planningService.setPrimaryBaseline(id);
+    }
+
+    unapplyBaselines() {
+        if (confirm('Are you sure you want to stop comparing against the primary baseline? This will hide the yellow bars in the Gantt chart.')) {
+            this.planningService.clearPrimaryBaseline();
+        }
+    }
+
+    clearAllBaselineDates() {
+        if (confirm('WARNING: This will permanently REMOVE all Baseline Start and Finish dates from ALL activities in this project. Captured baseline snapshots will NOT be deleted, but the current comparison will be cleared. Proceed?')) {
+            this.planningService.clearPrimaryBaseline();
+        }
+    }
+
+    onBaselineNameChange(baseline: any, newName: string) {
+        if (newName && newName !== baseline.name) {
+            this.planningService.updateBaseline(baseline.id, newName, baseline.createdAt);
+        }
+    }
+
+    onBaselineDateChange(baseline: any, newDate: string) {
+        if (newDate) {
+            this.planningService.updateBaseline(baseline.id, baseline.name, new Date(newDate));
+        }
+    }
+
     startAddResourceType() {
         this.editingResourceType.set({ id: 0, name: '', description: '', projectId: this.planningService.state().projectId });
     }
@@ -353,11 +396,6 @@ export class EditorComponent {
         this.showSCurves.set(false);
     }
 
-    setBaseline() {
-        if (confirm('Set current schedule as the project baseline? This will overwrite any existing baseline.')) {
-            this.planningService.assignBaseline();
-        }
-    }
 
     levelResources() {
         if (confirm('Level resources? This will delay activities based on resource availability limits.')) {

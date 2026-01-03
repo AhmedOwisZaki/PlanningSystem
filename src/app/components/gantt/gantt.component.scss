@@ -469,17 +469,28 @@
 
 .baseline-bar {
   position: absolute;
-  top: 18px;
-  /* Position below task bar */
-  transform: none;
-  height: 8px;
+  top: 20px;
+  /* Slightly lower to avoid overlap with main bar (top 4-20) */
+  height: 6px;
+  /* Slightly thinner */
   background: #fcc419;
-  border-radius: 2px;
+  border: 0.5px solid #d9480f;
+  /* Add thin border for contrast */
+  border-radius: 1px;
   opacity: 1;
-  /* Make full opacity for visibility */
   z-index: 1;
   pointer-events: none;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+}
+
+.baseline-milestone-diamond {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #fcc419;
+  border: 1px solid #d9480f;
+  transform: rotate(45deg);
+  z-index: 1;
+  pointer-events: none;
 }
 
 .progress {

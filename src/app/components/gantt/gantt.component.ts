@@ -81,9 +81,14 @@ export class GanttComponent {
 
   onBaseline(event: MouseEvent) {
     if (event.shiftKey) {
-      this.planningService.clearBaseline();
+      if (confirm('Are you sure you want to clear the baseline?')) {
+        this.planningService.clearBaseline();
+      }
     } else {
-      this.planningService.createBaseline();
+      const name = prompt('Enter a name for the new baseline:', `Baseline ${new Date().toLocaleDateString()}`);
+      if (name) {
+        this.planningService.createBaseline(name);
+      }
     }
   }
 
@@ -187,6 +192,8 @@ export class GanttComponent {
     { id: 'lateFinish', name: 'Late Finish', width: signal(80), visible: signal(false), property: 'lateFinish' },
     { id: 'blStart', name: 'BL Start', width: signal(80), visible: signal(false), property: 'baselineStartDate' },
     { id: 'blFinish', name: 'BL Finish', width: signal(80), visible: signal(false), property: 'baselineEndDate' },
+    { id: 'actualStart', name: 'Actual Start', width: signal(80), visible: signal(false), property: 'actualStart' },
+    { id: 'actualFinish', name: 'Actual Finish', width: signal(80), visible: signal(false), property: 'actualFinish' },
     { id: 'budget', name: 'Budget (BAC)', width: signal(80), visible: signal(false), property: 'budgetAtCompletion' },
     { id: 'actualCost', name: 'Actual Cost (AC)', width: signal(80), visible: signal(false), property: 'actualCost' }
   ]);
@@ -229,9 +236,32 @@ export class GanttComponent {
   // Scroll Sync State
   timelineScrollX = signal(0);
 
+  // Computed timeline start date with 2-day buffer
+  ganttStartDate = computed(() => {
+    const projectStart = new Date(this.planningService.projectStartDate()).getTime();
+    const activities = this.activities();
+    let minDate = projectStart;
+
+    activities.forEach(a => {
+      if (a.startDate) {
+        const s = new Date(a.startDate).getTime();
+        if (s < minDate) minDate = s;
+      }
+      if (a.earlyStart) {
+        const es = new Date(a.earlyStart).getTime();
+        if (es < minDate) minDate = es;
+      }
+    });
+
+    const start = new Date(minDate);
+    start.setDate(start.getDate() - 2);
+    start.setHours(0, 0, 0, 0); // Normalize to midnight
+    return start;
+  });
+
   // Computed timeline
   totalDays = computed(() => {
-    const start = this.planningService.projectStartDate();
+    const start = this.ganttStartDate();
     const end = this.planningService.projectEndDate();
     const diffTime = Math.abs(end.getTime() - start.getTime());
     // Add a generous buffer (2 years) so zooming out doesn't reveal white space on the right
@@ -243,7 +273,7 @@ export class GanttComponent {
 
   days = computed(() => {
     const daysArr = [];
-    const start = new Date(this.planningService.projectStartDate());
+    const start = new Date(this.ganttStartDate());
     for (let i = 0; i < this.totalDays(); i++) {
       const d = new Date(start);
       d.setDate(d.getDate() + i);
@@ -287,7 +317,7 @@ export class GanttComponent {
 
   // Helper to position tasks
   getTaskLeft(activity: any): number {
-    const start = new Date(this.planningService.projectStartDate());
+    const start = new Date(this.ganttStartDate());
     start.setHours(0, 0, 0, 0); // Normalize to midnight
     const actStart = activity.earlyStart ? new Date(activity.earlyStart) : new Date(activity.startDate);
     const diffTime = actStart.getTime() - start.getTime();
@@ -310,17 +340,26 @@ export class GanttComponent {
 
   getBaselineLeft(date: Date): number {
     if (!date) return 0;
-    const start = this.planningService.projectStartDate();
-    const diffTime = new Date(date).getTime() - start.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const start = new Date(this.ganttStartDate());
+    start.setHours(0, 0, 0, 0);
+    const blStart = new Date(date);
+    blStart.setHours(0, 0, 0, 0);
+    const diffTime = blStart.getTime() - start.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     return diffDays * this.dayWidth * this.zoomLevel();
   }
 
   getBaselineWidth(start: Date, end: Date): number {
     if (!start || !end) return 0;
-    const diffTime = new Date(end).getTime() - new Date(start).getTime();
-    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return days * this.dayWidth * this.zoomLevel();
+    const s = new Date(start);
+    s.setHours(0, 0, 0, 0);
+    const e = new Date(end);
+    e.setHours(0, 0, 0, 0);
+
+    // Total days inclusive of start/end boundaries
+    const diffTime = e.getTime() - s.getTime();
+    const days = Math.round(diffTime / (1000 * 60 * 60 * 24));
+    return (days || 1) * this.dayWidth * this.zoomLevel();
   }
 
   // Computed visible activities (respecting expand/collapse)
@@ -888,6 +927,41 @@ export class GanttComponent {
         this.closeDependencyDetails();
       }
     }
+  }
+
+  onActualStartChange(activity: any, val: string) {
+    this.planningService.updateActivity({
+      ...activity,
+      actualStart: val ? new Date(val) : undefined
+    });
+  }
+
+  onActualFinishChange(activity: any, val: string) {
+    this.planningService.updateActivity({
+      ...activity,
+      actualFinish: val ? new Date(val) : undefined
+    });
+  }
+
+  onBaselineStartChange(activity: any, val: string) {
+    this.planningService.updateActivity({
+      ...activity,
+      baselineStartDate: val ? new Date(val) : undefined
+    });
+  }
+
+  onBaselineFinishChange(activity: any, val: string) {
+    this.planningService.updateActivity({
+      ...activity,
+      baselineEndDate: val ? new Date(val) : undefined
+    });
+  }
+
+  onStartDateChange(activity: any, val: string) {
+    this.planningService.updateActivity({
+      ...activity,
+      startDate: val ? new Date(val) : undefined
+    });
   }
 
   // Activity Selection for Details Panel

@@ -255,17 +255,25 @@ export class PlanningService {
                         lateFinish: a.lateFinish ? new Date(a.lateFinish) : undefined,
                         baselineStartDate: a.baselineStartDate ? new Date(a.baselineStartDate) : undefined,
                         baselineEndDate: a.baselineEndDate ? new Date(a.baselineEndDate) : undefined,
+                        actualStart: a.actualStart ? new Date(a.actualStart) : undefined,
+                        actualFinish: a.actualFinish ? new Date(a.actualFinish) : undefined,
                         isExpanded: true
                     })),
                     dependencies: data.dependencies,
                     resources: data.resources,
                     calendars: data.calendars.map((c: any) => this.mapApiCalendar(c)),
                     resourceTypes: data.resourceTypes || [],
-                    activityCodeDefinitions: []
-                };
+                    activityCodeDefinitions: [],
+                    baselines: data.baselines?.map((b: any) => ({
+                        ...b,
+                        createdAt: new Date(b.createdAt)
+                    })) || []
+                }
 
                 this.state.set(newState);
-                this.scheduleProject();
+                // REMOVED: this.scheduleProject();
+                // Schedule should only be called explicitly by user, not when loading project data
+                // This prevents baseline application from modifying main activity dates
 
                 // Persistence: Save last opened project ID
                 if (isPlatformBrowser(this.platformId)) {
@@ -1043,40 +1051,7 @@ export class PlanningService {
 
 
     // Baseline Management
-    assignBaseline() {
-        this.state.update(current => {
-            const activities = current.activities.map(a => {
-                const cal = this.getCalendar(a.calendarId);
-                return {
-                    ...a,
-                    baselineStartDate: a.startDate ? new Date(a.startDate) : undefined,
-                    baselineEndDate: a.startDate ? this.addWorkDays(new Date(a.startDate), a.duration, cal) : undefined
-                };
-            });
-            return { ...current, activities };
-        });
-        this.saveToHistory();
-        this.saveStateToStorage();
-    }
-
-    createBaseline() {
-        if (!confirm("Are you sure you want to capture the current schedule as the baseline? This will overwrite any existing baseline.")) return;
-
-        this.state.update(current => {
-            const activities = current.activities.map(a => {
-                const start = new Date(a.startDate);
-                const cal = this.getCalendar(a.calendarId);
-                const end = this.addWorkDays(start, a.duration, cal);
-                return {
-                    ...a,
-                    baselineStartDate: start,
-                    baselineEndDate: end
-                };
-            });
-            return { ...current, activities };
-        });
-        this.saveToHistory();
-    }
+    // Old baseline methods removed - using backend-aware counterparts now
 
     clearBaseline() {
         if (!confirm("Are you sure you want to clear the baseline?")) return;
@@ -1635,6 +1610,84 @@ export class PlanningService {
     updateProjectStartDate(newDate: Date) {
         this.state.update(s => ({ ...s, projectStartDate: newDate }));
         this.scheduleProject();
+    }
+
+    createBaseline(name: string) {
+        const projectId = this.state().projectId;
+        if (!projectId) return;
+
+        // Option B: Prepare baseline activities from current frontend state
+        // This captures the exact current schedule without modifying it
+        const baselineActivities = this.state().activities.map(activity => ({
+            baselineId: 0, // Will be set by backend
+            activityId: activity.id,
+            startDate: activity.earlyStart || activity.startDate,
+            finishDate: activity.earlyFinish || new Date(activity.startDate.getTime() + activity.duration * 24 * 60 * 60 * 1000),
+            duration: activity.duration
+        }));
+
+        this.apiService.createBaseline(projectId, name, baselineActivities).subscribe(newBaseline => {
+            this.state.update(s => ({
+                ...s,
+                baselines: [...(s.baselines || []), { ...newBaseline, createdAt: new Date(newBaseline.createdAt) }]
+            }));
+            // If it's the first one and it's primary, reload to get baseline dates synced
+            if (newBaseline.isPrimary) {
+                this.loadFullProject(projectId).subscribe();
+            }
+        });
+    }
+
+    deleteBaseline(id: number) {
+        this.apiService.deleteBaseline(id).subscribe(success => {
+            if (success) {
+                this.state.update(s => ({
+                    ...s,
+                    baselines: (s.baselines || []).filter(b => b.id !== id)
+                }));
+            }
+        });
+    }
+
+    setPrimaryBaseline(id: number) {
+        this.apiService.setPrimaryBaseline(id).subscribe(result => {
+            // Reload project to update all activity baseline dates
+            const projectId = this.state().projectId;
+            if (projectId) {
+                this.loadFullProject(projectId).subscribe();
+            }
+        });
+    }
+
+    clearPrimaryBaseline() {
+        const projectId = this.state().projectId;
+        if (!projectId) return;
+
+        // Optimistic UI: Clear local baseline dates and primary markers immediately
+        this.state.update(s => ({
+            ...s,
+            activities: s.activities.map(a => ({
+                ...a,
+                baselineStartDate: undefined,
+                baselineEndDate: undefined
+            })),
+            baselines: (s.baselines || []).map(b => ({ ...b, isPrimary: false }))
+        }));
+
+        this.apiService.clearPrimaryBaseline(projectId).subscribe(success => {
+            if (success) {
+                this.loadFullProject(projectId).subscribe();
+            }
+        });
+    }
+
+    updateBaseline(id: number, name: string, createdAt: Date) {
+        this.apiService.updateBaseline({ id, name, createdAt }).subscribe(updated => {
+            this.state.update(s => ({
+                ...s,
+                baselines: (s.baselines || []).map(b => b.id === id ? { ...b, name: updated.name, createdAt: new Date(updated.createdAt) } : b)
+            }));
+        });
     }
 }
 

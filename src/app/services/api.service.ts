@@ -173,6 +173,10 @@ export class ApiService {
                     parentId
                     calendarId
                     type
+                    baselineStartDate
+                    baselineEndDate
+                    actualStart
+                    actualFinish
                     resourceItems {
                         id
                         resourceId
@@ -218,11 +222,78 @@ export class ApiService {
                     description
                     projectId
                 }
+                baselines(where: { projectId: { eq: $projectId } }) {
+                    id
+                    name
+                    createdAt
+                    isPrimary
+                }
             }
         `;
         return this.executeGraphQL(query, { projectId }).pipe(
             map(res => res.data),
             tap(data => console.log('Fetched full project via GraphQL:', data))
+        );
+    }
+
+    createBaseline(projectId: number, name: string, baselineActivities?: any[]): Observable<any> {
+        const query = `
+            mutation($input: CreateBaselineInput!) {
+                createBaseline(input: $input) {
+                    id
+                    name
+                    createdAt
+                    isPrimary
+                }
+            }
+        `;
+        const input: any = { projectId, name };
+        if (baselineActivities) {
+            input.baselineActivities = baselineActivities;
+        }
+        return this.executeGraphQL(query, { input }).pipe(
+            map(res => res.data.createBaseline),
+            tap(data => console.log('Created baseline via GraphQL:', data))
+        );
+    }
+
+    deleteBaseline(id: number): Observable<boolean> {
+        const query = `
+            mutation($id: Long!) {
+                deleteBaseline(id: $id)
+            }
+        `;
+        return this.executeGraphQL(query, { id }).pipe(
+            map(res => res.data.deleteBaseline),
+            tap(() => console.log('Deleted baseline via GraphQL:', id))
+        );
+    }
+
+    setPrimaryBaseline(id: number): Observable<any> {
+        const query = `
+            mutation($id: Long!) {
+                setPrimaryBaseline(id: $id) {
+                    id
+                    name
+                    isPrimary
+                }
+            }
+        `;
+        return this.executeGraphQL(query, { id }).pipe(
+            map(res => res.data.setPrimaryBaseline),
+            tap(data => console.log('Set primary baseline via GraphQL:', data))
+        );
+    }
+
+    clearPrimaryBaseline(projectId: number): Observable<boolean> {
+        const query = `
+            mutation($projectId: Long!) {
+                clearPrimaryBaseline(projectId: $projectId)
+            }
+        `;
+        return this.executeGraphQL(query, { projectId }).pipe(
+            map(res => res.data.clearPrimaryBaseline),
+            tap(() => console.log('Cleared primary baselines for project:', projectId))
         );
     }
 
@@ -798,6 +869,10 @@ export class ApiService {
                     parentId
                     calendarId
                     type
+                    baselineStartDate
+                    baselineEndDate
+                    actualStart
+                    actualFinish
                 }
             }
         `;
@@ -810,7 +885,11 @@ export class ApiService {
             calendarId: activity.calendarId,
             type: activity.type || 'Task',
             percentComplete: activity.percentComplete || 0,
-            parentId: activity.parentId
+            parentId: activity.parentId,
+            baselineStartDate: activity.baselineStartDate,
+            baselineEndDate: activity.baselineEndDate,
+            actualStart: activity.actualStart,
+            actualFinish: activity.actualFinish
         };
         return this.executeGraphQL(mutation, { input }).pipe(
             map(res => res.data.updateActivity),
@@ -1021,5 +1100,22 @@ export class ApiService {
     updateActivityCodes(activityId: number, codes: any): Observable<any> {
         console.warn('ActivityCode assignments are not supported in the backend yet.');
         return of(null);
+    }
+
+    updateBaseline(input: { id: number, name: string, createdAt: Date }): Observable<any> {
+        const query = `
+            mutation($input: UpdateBaselineInput!) {
+                updateBaseline(input: $input) {
+                    id
+                    name
+                    createdAt
+                    isPrimary
+                }
+            }
+        `;
+        return this.executeGraphQL(query, { input }).pipe(
+            map(res => res.data.updateBaseline),
+            tap(data => console.log('Updated baseline via GraphQL:', data))
+        );
     }
 }
