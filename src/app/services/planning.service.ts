@@ -30,7 +30,14 @@ export class PlanningService {
     resources = computed(() => this.state().resources || []);
     projectStartDate = computed(() => this.state().projectStartDate);
     projectEndDate = computed(() => this.state().projectEndDate);
+    projectId = computed(() => this.state().projectId);
 
+    isBaselineApplied = computed(() => {
+        const state = this.state();
+        return (state.baselines || []).some(b => b.isPrimary);
+    });
+
+    calendars = computed(() => this.state().calendars || []);
     resourceTypes = computed(() => this.state().resourceTypes || []);
     // Code Accessors
     activityCodeDefinitions = computed(() => this.state().activityCodeDefinitions || []);
@@ -240,10 +247,11 @@ export class PlanningService {
 
                 const newState: ProjectState = {
                     projectId: project.id,
-                    projectName: project.name,
+                    projectName: project.name || project.projectName, // Use name if available, fallback to projectName
                     projectDescription: project.description,
                     projectStartDate: new Date(project.startDate),
                     projectEndDate: new Date(project.endDate),
+                    defaultCalendarId: project.defaultCalendarId,
                     activities: data.activities.map((a: any) => ({
                         ...a,
                         id: Number(a.id),
@@ -744,12 +752,7 @@ export class PlanningService {
             successors.get(dep.sourceId)!.push(dep);
         });
 
-        // 3. Topological Sort (Kahn's algorithm roughly, or just level based)
-        // For simple CPM, we can just iterate if we ensure we process ready nodes.
-        // Actually, easiest is to just compute Early Dates then Late Dates.
-        // We need an order where predecessors are processed before successors.
-
-        // Simple Topological Sort
+        // 3. Topological Sort
         const sortedIds: number[] = [];
         const visited = new Set<number>();
         const tempVisited = new Set<number>();
@@ -762,16 +765,12 @@ export class PlanningService {
                 succs.forEach(dep => visit(dep.targetId));
                 tempVisited.delete(id);
                 visited.add(id);
-                sortedIds.unshift(id); // Post-order, so unshift gives Topological order
+                sortedIds.unshift(id);
             }
         };
 
         try {
             activities.forEach(a => {
-                // Only sort leaf nodes or treat parents as summaries?
-                // Standard CPM: Only leaf nodes (activities) have duration/logic. Parents summarize.
-                // For this implementation, we'll treat all as tasks but ignore parent/child containment for logic 
-                // UNLESS we want strict WBS rollups. Let's start with activity-level logic ignoring WBS for calc.
                 if (!visited.has(a.id)) visit(a.id);
             });
         } catch (e) {
@@ -782,23 +781,19 @@ export class PlanningService {
 
         // 4. Forward Pass (Early Dates)
         const projectStart = new Date(state.projectStartDate);
+        projectStart.setHours(0, 0, 0, 0); // Defensive: Ensure midnight alignment
+        const isBaselineApplied = (state.baselines || []).some(b => b.isPrimary);
 
         sortedIds.forEach(id => {
             const act = actMap.get(id)!;
             const calendar = this.getCalendar(act.calendarId);
 
-            // Milestone Logic: Enforce 0 duration if Milestone
             if (act.type === 'StartMilestone' || act.type === 'FinishMilestone') {
                 act.duration = 0;
             }
 
-            if (this.isParent(id)) return; // Skip summaries for logic
-
+            // Snap to project start by default if no predecessors
             let earlyStart = new Date(projectStart);
-            // Adjust project start to be a valid workday on this calendar for the baseline if no preds
-            while (!this.isWorkDay(earlyStart, calendar)) {
-                earlyStart.setDate(earlyStart.getDate() + 1);
-            }
 
             let minEarlyFinish: Date | null = null;
             const preds = predecessors.get(id) || [];
@@ -828,20 +823,19 @@ export class PlanningService {
                 }
             }
 
-            // PRIORITIZE ACTUALS: If actualStart exists, override earlyStart
-            if (act.actualStart) {
+            // PRIORITIZE ACTUALS: If actualStart exists, override earlyStart (ONLY if baseline is applied)
+            if (isBaselineApplied && act.actualStart) {
                 earlyStart = new Date(act.actualStart);
             }
 
             act.earlyStart = earlyStart;
             act.startDate = earlyStart;
 
-            // Calculate Finish: Max of (Start + Duration) and any FF/SF constraints
             const standardFinish = this.addWorkDays(earlyStart, act.duration, calendar);
             let earlyFinish = (minEarlyFinish && minEarlyFinish.getTime() > standardFinish.getTime()) ? minEarlyFinish : standardFinish;
 
-            // PRIORITIZE ACTUALS: If actualFinish exists, override earlyFinish
-            if (act.actualFinish) {
+            // PRIORITIZE ACTUALS: If actualFinish exists, override earlyFinish (ONLY if baseline is applied)
+            if (isBaselineApplied && act.actualFinish) {
                 earlyFinish = new Date(act.actualFinish);
             }
             act.earlyFinish = earlyFinish;
@@ -859,13 +853,10 @@ export class PlanningService {
 
         [...sortedIds].reverse().forEach(id => {
             const act = actMap.get(id)!;
-            if (this.isParent(id)) return;
 
             const calendar = this.getCalendar(act.calendarId);
 
             let lateFinish = new Date(projectFinish);
-            let constrained = false;
-
             const succs = successors.get(id) || [];
             if (succs.length > 0) {
                 lateFinish = new Date(8640000000000000); // Far future
@@ -879,32 +870,15 @@ export class PlanningService {
                 const lag = (dep.lag || 0);
 
                 if (dep.type === 'FS') {
-                    // Pred Late Finish = Succ Late Start - Lag - 1 day (prev working day)
-                    // Or Succ Start = Pred Finish + Lag + 1
-                    // So Pred Finish = Succ Start - Lag - 1
-
-                    // 1. Shift back Lag
                     let baseDate = this.subtractWorkDays(tgt.lateStart, lag, calendar);
-
-                    // With exclusive dates, lateFinish of pred = lateStart of succ (if lag 0)
-                    // No need to shift back 1 day manually.
-                    // Just ensure baseDate lands on a valid work day if we were at a boundary.
                     while (!this.isWorkDay(baseDate, calendar)) {
                         baseDate.setDate(baseDate.getDate() - 1);
                     }
                     potentialFinish = baseDate;
-
                 } else if (dep.type === 'SS') {
-                    // Pred Start = Succ Start - Lag
-                    // So Pred Late Start <= Succ Late Start - Lag
-                    // Derived Late Finish from Late Start
-                    // Pred Start = Succ Start - Lag
-                    // So Pred Late Start <= Succ Late Start - Lag
-                    // Derived Late Finish from Late Start
                     const lateStartLim = this.subtractWorkDays(tgt.lateStart, lag, calendar);
                     potentialFinish = this.addWorkDays(lateStartLim, act.duration, calendar);
                 } else if (dep.type === 'FF') {
-                    // Pred Finish = Succ Finish - Lag
                     potentialFinish = this.subtractWorkDays(tgt.lateFinish!, lag, calendar);
                 } else {
                     potentialFinish = new Date(tgt.lateStart);
@@ -915,17 +889,16 @@ export class PlanningService {
                 }
             });
 
-            // PRIORITIZE ACTUALS: If actualFinish exists, override lateFinish
-            if (act.actualFinish) {
+            // PRIORITIZE ACTUALS: If actualFinish exists, override lateFinish (ONLY if baseline is applied)
+            if (isBaselineApplied && act.actualFinish) {
                 lateFinish = new Date(act.actualFinish);
             }
             act.lateFinish = lateFinish;
 
-            // Calculate Late Start
             let lateStart = this.subtractWorkDays(lateFinish, act.duration, calendar);
 
-            // PRIORITIZE ACTUALS: If actualStart exists, override lateStart
-            if (act.actualStart) {
+            // PRIORITIZE ACTUALS: If actualStart exists, override lateStart (ONLY if baseline is applied)
+            if (isBaselineApplied && act.actualStart) {
                 lateStart = new Date(act.actualStart);
             }
             act.lateStart = lateStart;
@@ -938,13 +911,10 @@ export class PlanningService {
         // 6. Rollup Summaries (WBS)
         this.rollupWBS(activities);
 
-        // Persist WBS changes (Dates/Percent)
-        activities.filter(a => a.type === 'WBS').forEach(wbs => {
-            // Check if changed from state? Or just update all WBS?
-            // Ideally we only update if changed. But simpler to just update for now or check dirty flag.
-            // Let's rely on the fact that we just computed it.
-            this.apiService.updateActivity(wbs.id, wbs).subscribe({
-                error: (err) => console.error(`Failed to sync WBS ${wbs.id}:`, err)
+        // Persist ALL changes to ensure schedule is saved
+        activities.forEach(act => {
+            this.apiService.updateActivity(act.id, act).subscribe({
+                error: (err) => console.error(`Failed to sync activity ${act.id}:`, err)
             });
         });
 
@@ -963,24 +933,17 @@ export class PlanningService {
 
         if (!activities || activities.length === 0) return;
 
-        let minStart = new Date(state.projectStartDate);
+        // FIXED: projectStartDate is now an anchor and does not change automatically.
         let maxEnd = new Date(state.projectEndDate);
-
-        // Flag to check if we actually need to change anything to avoid infinite loops if we were using effects
         let changed = false;
 
-        // Iterate all activities to find true bounds
+        // Iterate all activities to find true end bound
         activities.forEach(a => {
             const start = a.startDate ? new Date(a.startDate) : null;
-            // End date = Start + Duration days
             const cal = this.getCalendar(a.calendarId);
             const end = start ? this.addWorkDays(start, a.duration || 1, cal) : null;
 
-            if (start && start < minStart) {
-                minStart = start;
-                changed = true;
-            }
-            if (end && end > maxEnd) {
+            if (end && end.getTime() > maxEnd.getTime()) {
                 maxEnd = end;
                 changed = true;
             }
@@ -990,12 +953,11 @@ export class PlanningService {
         if (changed) {
             // Buffer: 7 days
             const bufferTime = 7 * 24 * 60 * 60 * 1000;
-            maxEnd = new Date(maxEnd.getTime() + bufferTime);
+            const bufferedEnd = new Date(maxEnd.getTime() + bufferTime);
 
             this.state.update(s => ({
                 ...s,
-                projectStartDate: minStart,
-                projectEndDate: maxEnd
+                projectEndDate: bufferedEnd
             }));
         }
     }
@@ -1630,8 +1592,26 @@ export class PlanningService {
     }
 
     updateProjectStartDate(newDate: Date) {
-        this.state.update(s => ({ ...s, projectStartDate: newDate }));
-        this.scheduleProject();
+        // Normalize to start of day
+        const cleanDate = new Date(newDate);
+        cleanDate.setHours(0, 0, 0, 0);
+
+        const current = this.state();
+        if (!current.projectId) return;
+
+        this.apiService.updateProject(current.projectId, {
+            ...current,
+            startDate: cleanDate
+        }).subscribe({
+            next: (updatedProject) => {
+                this.state.update(s => ({
+                    ...s,
+                    projectStartDate: new Date(updatedProject.startDate)
+                }));
+                this.scheduleProject();
+            },
+            error: (err) => console.error('Failed to update project start date:', err)
+        });
     }
 
     createBaseline(name: string) {
@@ -1685,20 +1665,40 @@ export class PlanningService {
         const projectId = this.state().projectId;
         if (!projectId) return;
 
-        // Optimistic UI: Clear local baseline dates and primary markers immediately
+        // Optimistic UI: Clear local baseline dates, actuals, and primary markers immediately
         this.state.update(s => ({
             ...s,
             activities: s.activities.map(a => ({
                 ...a,
                 baselineStartDate: undefined,
-                baselineEndDate: undefined
+                baselineEndDate: undefined,
+                actualStart: undefined,
+                actualFinish: undefined
             })),
             baselines: (s.baselines || []).map(b => ({ ...b, isPrimary: false }))
         }));
 
         this.apiService.clearPrimaryBaseline(projectId).subscribe(success => {
             if (success) {
-                this.loadFullProject(projectId).subscribe();
+                // After clearing primary status, we must also persist the cleared actuals to the backend
+                // This is a batch update of activities.
+                const activities = this.state().activities;
+
+                // Extra persist for actuals (backend might only clear isPrimary flag)
+                const updates = activities.map(a =>
+                    this.apiService.updateActivity(a.id, {
+                        ...a,
+                        actualStart: null,
+                        actualFinish: null
+                    })
+                );
+
+                // Wait for all updates, then reload and reschedule
+                forkJoin(updates).subscribe(() => {
+                    this.loadFullProject(projectId).subscribe(() => {
+                        this.scheduleProject();
+                    });
+                });
             }
         });
     }

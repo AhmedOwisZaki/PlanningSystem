@@ -189,9 +189,8 @@
                         <span *ngSwitchCase="'dur'">{{ activity.duration }}</span>
 
                         <!-- Dates -->
-                        <div *ngSwitchCase="'start'" style="width: 100%;">
-                            <input type="date" [ngModel]="activity.startDate | date:'yyyy-MM-dd'"
-                                (ngModelChange)="onStartDateChange(activity, $event)" class="grid-date-input">
+                        <div *ngSwitchCase="'start'" style="width: 100%; text-align: center;">
+                            <span>{{ activity.startDate | date:'dd-MMM-yy' }}</span>
                         </div>
                         <span *ngSwitchCase="'finish'">{{ getDisplayFinish(activity) | date:'dd-MMM-yy' }}</span>
                         <span *ngSwitchCase="'earlyStart'">{{ activity.earlyStart | date:'dd-MMM-yy' }}</span>
@@ -321,10 +320,12 @@
                         </svg>
 
                         <div class="task-bar-wrapper" *ngFor="let activity of visibleActivities(); let i = index"
-                            [style.top.px]="i * rowHeight" [style.height.px]="rowHeight">
+                            [style.top.px]="i * rowHeight" [style.height.px]="rowHeight"
+                            [class.selected]="selectedActivity()?.id === activity.id">
 
                             <!-- Baseline Bar -->
                             <div class="baseline-bar" *ngIf="activity.baselineStartDate"
+                                [attr.title]="'Baseline: ' + activity.name"
                                 [style.left.px]="getBaselineLeft(activity.baselineStartDate)"
                                 [style.width.px]="getBaselineWidth(activity.baselineStartDate, activity.baselineEndDate)">
                             </div>
@@ -332,6 +333,7 @@
                             <!-- Baseline Milestone Diamond -->
                             <div class="baseline-milestone-diamond"
                                 *ngIf="(activity.type === 'StartMilestone' || activity.type === 'FinishMilestone') && activity.baselineStartDate"
+                                [attr.title]="'Baseline: ' + activity.name"
                                 [style.left.px]="getBaselineLeft(activity.baselineStartDate)" [style.top.px]="18">
                             </div>
 
@@ -340,7 +342,7 @@
                                 *ngIf="activity.type === 'StartMilestone' || activity.type === 'FinishMilestone'"
                                 [class.selected]="selectedActivity()?.id === activity.id"
                                 [class.critical]="activity.isCritical"
-                                [class.completed]="activity.actualStart && activity.actualFinish"
+                                [class.completed]="isBaselineApplied() && activity.actualStart && activity.actualFinish"
                                 (mousedown)="onTaskMouseDown($event, activity)"
                                 (click)="selectActivity(activity, $event)" [style.left.px]="getTaskLeft(activity)"
                                 [style.top.px]="5">
@@ -354,7 +356,7 @@
                                 [class.zoom-large]="zoomLevel() > .5"
                                 [class.selected]="selectedActivity()?.id === activity.id"
                                 [class.critical]="activity.isCritical"
-                                [class.completed]="activity.actualStart && activity.actualFinish"
+                                [class.completed]="isBaselineApplied() && activity.actualStart && activity.actualFinish"
                                 (mousedown)="onTaskMouseDown($event, activity)"
                                 (click)="selectActivity(activity, $event)"
                                 (dblclick)="onActivityDoubleClick(activity, $event)"

@@ -381,6 +381,12 @@
   width: 100%;
   overflow: visible; // Allow arrows to extend beyond wrapper
   /* pointer-events: none; allow click through to grid if needed? No, bars need events */
+
+  &.selected {
+    .baseline-bar {
+      z-index: 20; // Higher than task-bar's z-index 10
+    }
+  }
 }
 
 .task-bar {
@@ -421,6 +427,50 @@
     /* Blue */
     border: 1px solid #000;
   }
+
+  &.parent-task-bar {
+    background: #000 !important;
+    border: none !important;
+    height: 6px !important; // Thin top bar
+    top: 4px !important;
+    box-shadow: none !important;
+    overflow: visible !important; // Crucial for labels and pseudo-elements
+    border-radius: 0;
+
+    &::before,
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 10px solid #000; // 60-60-60 triangle approximation
+    }
+
+    &::before {
+      left: 0;
+    }
+
+    &::after {
+      right: 0;
+    }
+
+    &:hover {
+      background: #222 !important;
+
+      &::before,
+      &::after {
+        border-top-color: #222;
+      }
+    }
+
+    &.selected {
+      outline: 2px solid #f76707 !important; // Orange outline for WBS selection
+      outline-offset: 4px;
+    }
+  }
 }
 
 .milestone-diamond {
@@ -454,7 +504,7 @@
   }
 
   &.completed {
-    background: #228be6 !important;
+    background: #0738db !important;
     /* Blue */
     border-color: #000;
   }
@@ -483,7 +533,7 @@
   position: absolute;
   top: 20px;
   /* Slightly lower to avoid overlap with main bar (top 4-20) */
-  height: 6px;
+  height: 7px;
   /* Slightly thinner */
   background: #fcc419;
   border: 0.5px solid #d9480f;
@@ -491,7 +541,8 @@
   border-radius: 1px;
   opacity: 1;
   z-index: 1;
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: help;
 }
 
 .baseline-milestone-diamond {
@@ -502,7 +553,8 @@
   border: 1px solid #d9480f;
   transform: rotate(45deg);
   z-index: 1;
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: help;
 }
 
 .progress {

@@ -236,6 +236,11 @@ export class GanttComponent {
   // Scroll Sync State
   timelineScrollX = signal(0);
 
+  isBaselineApplied = computed(() => {
+    const state = this.projectState();
+    return (state.baselines || []).some(b => b.isPrimary);
+  });
+
   // Computed timeline start date with 2-day buffer
   ganttStartDate = computed(() => {
     const projectStart = new Date(this.planningService.projectStartDate()).getTime();

@@ -27,6 +27,8 @@ export class ActivityDetailsComponent implements OnDestroy {
     // Calendars from service
     calendars = computed(() => this.planningService.state().calendars || []);
 
+    isBaselineApplied = this.planningService.isBaselineApplied;
+
     // Relationship Logic
     predecessors = computed(() => {
         const act = this.selectedActivity();

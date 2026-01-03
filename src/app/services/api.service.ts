@@ -343,10 +343,10 @@ export class ApiService {
         `;
         const input = {
             id: id,
-            name: project.name,
-            description: project.description,
-            startDate: project.startDate,
-            endDate: project.endDate,
+            name: project.name || project.projectName,
+            description: project.description || project.projectDescription,
+            startDate: project.startDate || project.projectStartDate,
+            endDate: project.endDate || project.projectEndDate,
             defaultCalendarId: project.defaultCalendarId,
             isConstruction: project.isConstruction || false
         };
