@@ -619,16 +619,31 @@ export class PlanningService {
             lateFinish: this.toApiDate(updatedActivity.lateFinish)
         };
 
+        // Optimistic Update: Update state immediately for responsive UI
+        this.state.update(current => ({
+            ...current,
+            activities: current.activities.map(a => a.id === updatedActivity.id ? updatedActivity : a)
+        }));
+
+        // CRITICAL: Also update the selectedActivity signal if it matches the one being updated.
+        // This ensures the Details Panel (which reads selectedActivity) updates instantly.
+        if (this.selectedActivity()?.id === updatedActivity.id) {
+            this.selectedActivity.set(updatedActivity);
+        }
+
+        this.recalculateProjectBounds();
+        this.applyRollups();
+
         this.apiService.updateActivity(updatedActivity.id, apiActivity).subscribe({
             next: (savedProjectActivity) => {
-                this.state.update(current => ({
-                    ...current,
-                    activities: current.activities.map(a => a.id === updatedActivity.id ? updatedActivity : a)
-                }));
-                this.recalculateProjectBounds();
-                this.applyRollups();
+                // Success - state is already updated. 
+                // We could re-sync here if strict server consistency is needed, 
+                // but for now relying on optimistic update prevents UI flicker.
             },
-            error: (err) => console.error('Failed to update activity:', err)
+            error: (err) => {
+                console.error('Failed to update activity:', err);
+                // TODO: Revert logic could be added here
+            }
         });
     }
 

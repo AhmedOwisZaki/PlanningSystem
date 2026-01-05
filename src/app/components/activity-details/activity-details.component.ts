@@ -88,11 +88,12 @@ export class ActivityDetailsComponent implements OnDestroy {
         }
     }
 
-    onPercentCompleteChange(val: number) {
-        if (this.selectedActivity()) {
+    onPercentCompleteChange(val: number | string) {
+        const percent = Number(val);
+        if (this.selectedActivity() && !isNaN(percent)) {
             this.planningService.updateActivity({
                 ...this.selectedActivity()!,
-                percentComplete: val
+                percentComplete: percent
             });
         }
     }
