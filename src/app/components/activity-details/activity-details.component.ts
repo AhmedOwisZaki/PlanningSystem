@@ -88,6 +88,15 @@ export class ActivityDetailsComponent implements OnDestroy {
         }
     }
 
+    onPercentCompleteChange(val: number) {
+        if (this.selectedActivity()) {
+            this.planningService.updateActivity({
+                ...this.selectedActivity()!,
+                percentComplete: val
+            });
+        }
+    }
+
     onActualStartChange(val: string) {
         if (this.selectedActivity()) {
             this.planningService.updateActivity({

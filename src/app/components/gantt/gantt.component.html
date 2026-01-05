@@ -226,7 +226,20 @@
                         </div>
 
                         <!-- Numbers -->
-                        <span *ngSwitchCase="'percent'">{{ activity.percentComplete }}%</span>
+                        <!-- Numbers -->
+                        <div *ngSwitchCase="'percent'"
+                            style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;"
+                            (dblclick)="editingPercentId.set(activity.id)">
+                            <div *ngIf="editingPercentId() !== activity.id">
+                                {{ activity.percentComplete }}%
+                            </div>
+                            <div *ngIf="editingPercentId() === activity.id" style="width: 100%; display: flex;">
+                                <input type="number" [ngModel]="activity.percentComplete"
+                                    (ngModelChange)="onPercentCompleteEdit(activity.id, $event)"
+                                    (blur)="editingPercentId.set(null)" (keyup.enter)="editingPercentId.set(null)"
+                                    class="grid-number-input" style="width: 100%;" [autofocus]="true" min="0" max="100">
+                            </div>
+                        </div>
                         <span *ngSwitchCase="'float'">{{ activity.totalFloat || 0 }}</span>
                         <span *ngSwitchCase="'budget'">{{ activity.budgetAtCompletion | currency }}</span>
                         <span *ngSwitchCase="'actualCost'">{{ activity.actualCost | currency }}</span>
@@ -326,6 +339,12 @@
                                 class="link-drag-line" style="pointer-events: none;" />
                         </svg>
 
+                        <!-- Baseline Vertical Line -->
+                        <div class="baseline-vertical-line" *ngIf="baselineLineLeft() !== null"
+                            [style.left.px]="baselineLineLeft()"
+                            [attr.title]="'Baseline Date: ' + (primaryBaseline()?.createdAt | date:'mediumDate')">
+                        </div>
+
                         <div class="task-bar-wrapper" *ngFor="let activity of visibleActivities(); let i = index"
                             [style.top.px]="i * rowHeight" [style.height.px]="rowHeight"
                             [class.selected]="selectedActivity()?.id === activity.id">
@@ -349,7 +368,7 @@
                                 *ngIf="activity.type === 'StartMilestone' || activity.type === 'FinishMilestone'"
                                 [class.selected]="selectedActivity()?.id === activity.id"
                                 [class.critical]="activity.isCritical"
-                                [class.completed]="isBaselineApplied() && activity.actualStart && activity.actualFinish"
+                                [class.completed]="activity.actualStart && activity.actualFinish"
                                 (mousedown)="onTaskMouseDown($event, activity)"
                                 (click)="selectActivity(activity, $event)" [style.left.px]="getTaskLeft(activity)"
                                 [style.top.px]="5">
@@ -363,7 +382,7 @@
                                 [class.zoom-large]="zoomLevel() > .5"
                                 [class.selected]="selectedActivity()?.id === activity.id"
                                 [class.critical]="activity.isCritical"
-                                [class.completed]="isBaselineApplied() && activity.actualStart && activity.actualFinish"
+                                [class.completed]="!isParentActivity(activity) && activity.actualStart && activity.actualFinish"
                                 (mousedown)="onTaskMouseDown($event, activity)"
                                 (click)="selectActivity(activity, $event)"
                                 (dblclick)="onActivityDoubleClick(activity, $event)"
@@ -381,7 +400,8 @@
                                 <div class="link-handle handle-right" [attr.data-id]="activity.id" data-type="finish"
                                     (mousedown)="onHandleMouseDown($event, activity, 'finish')"></div>
 
-                                <div class="progress" [style.width.%]="activity.percentComplete"></div>
+                                <div class="progress" *ngIf="!isParentActivity(activity)"
+                                    [style.width.%]="activity.percentComplete"></div>
                                 <span class="task-label">{{ activity.name }}</span>
                             </div>
                         </div>
@@ -442,5 +462,28 @@
     </div>
 
     <!-- Side Window REMOVED -->
+
+    <!-- Baseline Capture Modal -->
+    <div class="modal-overlay" *ngIf="showBaselineModal()" (click)="closeBaselineModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+            <h3>Capture Baseline</h3>
+            <form (submit)="saveBaseline(); $event.preventDefault()">
+                <div class="form-group">
+                    <label>Baseline Name</label>
+                    <input type="text" [ngModel]="newBaselineName()" (ngModelChange)="newBaselineName.set($event)"
+                        name="baselineName" required>
+                </div>
+                <div class="form-group">
+                    <label>Baseline Date (Data Date)</label>
+                    <input type="date" [ngModel]="newBaselineDate()" (ngModelChange)="newBaselineDate.set($event)"
+                        name="baselineDate" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" (click)="closeBaselineModal()">Cancel</button>
+                    <button type="submit" class="btn-primary">Capture</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 ```

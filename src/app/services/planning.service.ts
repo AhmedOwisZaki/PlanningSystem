@@ -161,20 +161,21 @@ export class PlanningService {
     public parseProjectDate(val: any): Date {
         if (!val) return new Date();
 
-        // If it's a string, strip any time/timezone part to focus on YYYY-MM-DD
-        if (typeof val === 'string') {
-            // Strip T00:00:00.000Z or similar
-            const cleanStr = val.split('T')[0];
-            const isoMatch = cleanStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
-            if (isoMatch) {
-                const year = parseInt(isoMatch[1], 10);
-                const month = parseInt(isoMatch[2], 10) - 1; // 0-based
-                const day = parseInt(isoMatch[3], 10);
-                return new Date(year, month, day, 0, 0, 0, 0);
-            }
-        }
+        // Robust Parsing: Snap to Nearest Midnight
+        // This handles cases where a UTC midnight date (00:00Z) becomes "Yesterday 19:00" 
+        // in Western timezones, or "Today 02:00" in Eastern timezones.
+        // Simple setHours(0) would lock it to "Yesterday" for Western users (-1 day error).
 
         const d = new Date(val);
+        const hours = d.getHours();
+
+        // If it's late in the day (e.g., > 12:00), we assume it's a timezone-shifted 
+        // "Midnight" that belongs to the NEXT day.
+        if (hours > 12) {
+            d.setDate(d.getDate() + 1);
+        }
+
+        // Normalize to local midnight
         d.setHours(0, 0, 0, 0);
         return d;
     }
@@ -286,6 +287,18 @@ export class PlanningService {
 
     loadFullProject(projectId: number) {
         return this.apiService.getFullProject(projectId).pipe(
+            tap((rawData: any) => {
+                console.log('🔍 RAW API RESPONSE - Activities:', rawData.activities?.length || 0);
+                const sampleWithActuals = rawData.activities?.find((a: any) => a.percentComplete > 0 || a.actualStart);
+                if (sampleWithActuals) {
+                    console.log('  Sample Activity from API:', {
+                        name: sampleWithActuals.name,
+                        percentComplete: sampleWithActuals.percentComplete,
+                        actualStart: sampleWithActuals.actualStart,
+                        actualFinish: sampleWithActuals.actualFinish
+                    });
+                }
+            }),
             map(data => {
                 const project = data.projects[0];
                 if (!project) throw new Error('Project not found');
@@ -297,21 +310,34 @@ export class PlanningService {
                     projectStartDate: this.parseProjectDate(project.startDate),
                     projectEndDate: this.parseProjectDate(project.endDate),
                     defaultCalendarId: project.defaultCalendarId,
-                    activities: data.activities.map((a: any) => ({
-                        ...a,
-                        id: Number(a.id),
-                        parentId: a.parentId ? Number(a.parentId) : null,
-                        startDate: this.parseProjectDate(a.startDate),
-                        earlyStart: a.earlyStart ? this.parseProjectDate(a.earlyStart) : undefined,
-                        earlyFinish: a.earlyFinish ? this.parseProjectDate(a.earlyFinish) : undefined,
-                        lateStart: a.lateStart ? this.parseProjectDate(a.lateStart) : undefined,
-                        lateFinish: a.lateFinish ? this.parseProjectDate(a.lateFinish) : undefined,
-                        baselineStartDate: a.baselineStartDate ? this.parseProjectDate(a.baselineStartDate) : undefined,
-                        baselineEndDate: a.baselineEndDate ? this.parseProjectDate(a.baselineEndDate) : undefined,
-                        actualStart: a.actualStart ? this.parseProjectDate(a.actualStart) : undefined,
-                        actualFinish: a.actualFinish ? this.parseProjectDate(a.actualFinish) : undefined,
-                        isExpanded: true
-                    })),
+                    activities: data.activities.map((a: any) => {
+                        if (a.percentComplete > 0 || a.actualStart) {
+                            console.log(`📥 LOADED Activity [${a.name}]:`, {
+                                percentComplete: a.percentComplete,
+                                actualStart: a.actualStart,
+                                actualFinish: a.actualFinish
+                            });
+                        }
+                        return {
+                            ...a,
+                            id: Number(a.id),
+                            parentId: a.parentId ? Number(a.parentId) : null,
+                            startDate: this.parseProjectDate(a.startDate),
+                            earlyStart: a.earlyStart ? this.parseProjectDate(a.earlyStart) : undefined,
+                            earlyFinish: a.earlyFinish ? this.parseProjectDate(a.earlyFinish) : undefined,
+                            lateStart: a.lateStart ? this.parseProjectDate(a.lateStart) : undefined,
+                            lateFinish: a.lateFinish ? this.parseProjectDate(a.lateFinish) : undefined,
+                            deadline: a.deadline ? this.parseProjectDate(a.deadline) : undefined,
+                            percentComplete: a.percentComplete || 0,
+                            // Ensure baseline and actuals are parsed correctly
+                            baselineStartDate: a.baselineStartDate ? this.parseProjectDate(a.baselineStartDate) : undefined,
+                            baselineEndDate: a.baselineEndDate ? this.parseProjectDate(a.baselineEndDate) : undefined,
+                            actualStart: a.actualStart ? this.parseProjectDate(a.actualStart) : undefined,
+                            actualFinish: a.actualFinish ? this.parseProjectDate(a.actualFinish) : undefined,
+                            isExpanded: true
+                        };
+                    }),
+
                     dependencies: data.dependencies,
                     resources: data.resources,
                     calendars: data.calendars.map((c: any) => this.mapApiCalendar(c)),
@@ -324,9 +350,7 @@ export class PlanningService {
                 }
 
                 this.state.set(newState);
-                // REMOVED: this.scheduleProject();
-                // Schedule should only be called explicitly by user, not when loading project data
-                // This prevents baseline application from modifying main activity dates
+                this.scheduleProject();
 
                 // Persistence: Save last opened project ID
                 if (isPlatformBrowser(this.platformId)) {
@@ -531,12 +555,56 @@ export class PlanningService {
     }
 
     updateActivity(updatedActivity: Activity) {
+        this._updateActivityInternal(updatedActivity);
+    }
+
+    updateActivityProgress(activityId: number, percentComplete: number) {
+        const activity = this.state().activities.find(a => a.id === activityId);
+        if (!activity) return;
+        this._updateActivityInternal({ ...activity, percentComplete });
+    }
+
+    // Internal method to handle activity updates and API calls
+    private _updateActivityInternal(updatedActivity: Activity) {
+        // Find the previous state to detect what changed
+        const previousActivity = this.state().activities.find(a => a.id === updatedActivity.id);
+
+        // Progress Logic: Smart Auto-set/reset Actual Dates
+        // Only auto-manage dates if they weren't explicitly set by the user
+
+        // 1. Auto-set actualStart: Only if progress increased from 0 and user hasn't provided a date
+        if (updatedActivity.percentComplete > 0 && !updatedActivity.actualStart) {
+            // Only auto-set if the previous state also didn't have an actualStart
+            // This prevents overriding a manual clear/edit
+            if (!previousActivity?.actualStart) {
+                updatedActivity.actualStart = this.parseProjectDate(updatedActivity.startDate);
+            }
+        }
+
+        // 2. Auto-set actualFinish: Only if reaching 100% and user hasn't provided a date
+        if (updatedActivity.percentComplete === 100 && !updatedActivity.actualFinish) {
+            // Only auto-set if the previous state also didn't have an actualFinish
+            if (!previousActivity?.actualFinish) {
+                updatedActivity.actualFinish = this.parseProjectDate(new Date());
+            }
+        }
+
+        // 3. Auto-clear actuals: Only if progress was explicitly reset from a non-zero value
+        // Do NOT clear if user is just manually setting dates at 0% progress
+        if (updatedActivity.percentComplete === 0 && previousActivity && previousActivity.percentComplete > 0) {
+            // Only clear if the dates existed before (were auto-set or from previous state)
+            if (previousActivity.actualStart || previousActivity.actualFinish) {
+                updatedActivity.actualStart = undefined;
+                updatedActivity.actualFinish = undefined;
+            }
+        }
+
+
         // Enforce date consistency immediately for UI feedback
         const cal = this.getCalendar(updatedActivity.calendarId);
         updatedActivity.earlyStart = this.parseProjectDate(updatedActivity.startDate);
         updatedActivity.earlyFinish = this.addWorkDays(updatedActivity.earlyStart, updatedActivity.duration, cal);
 
-        // Optimistic update? Or wait? Let's wait for now to be safe.
         // Prepare for API with UTC normalization
         const apiActivity = {
             ...updatedActivity,
@@ -544,7 +612,11 @@ export class PlanningService {
             baselineStartDate: this.toApiDate(updatedActivity.baselineStartDate),
             baselineEndDate: this.toApiDate(updatedActivity.baselineEndDate),
             actualStart: this.toApiDate(updatedActivity.actualStart),
-            actualFinish: this.toApiDate(updatedActivity.actualFinish)
+            actualFinish: this.toApiDate(updatedActivity.actualFinish),
+            earlyStart: this.toApiDate(updatedActivity.earlyStart),
+            earlyFinish: this.toApiDate(updatedActivity.earlyFinish),
+            lateStart: this.toApiDate(updatedActivity.lateStart),
+            lateFinish: this.toApiDate(updatedActivity.lateFinish)
         };
 
         this.apiService.updateActivity(updatedActivity.id, apiActivity).subscribe({
@@ -966,12 +1038,16 @@ export class PlanningService {
         // 6. Rollup Summaries (WBS)
         this.rollupWBS(activities);
 
-        // Persist ALL changes to ensure schedule is saved
-        activities.forEach(act => {
-            this.apiService.updateActivity(act.id, act).subscribe({
-                error: (err) => console.error(`Failed to sync activity ${act.id}:`, err)
-            });
-        });
+        // REMOVED: Auto-persistence after scheduling
+        // This was overwriting baseline-restored actual dates when SetPrimaryBaseline was called
+        // Individual field changes (duration, name, etc.) trigger their own persistence via updateActivity()
+        // Mass schedule recalculation should only update local state
+        // activities.forEach(act => {
+        //     this.apiService.updateActivity(act.id, act).subscribe({
+        //         error: (err) => console.error(`Failed to sync activity ${act.id}:`, err)
+        //     });
+        // });
+
 
         this.state.update(s => ({
             ...s,
@@ -1670,7 +1746,7 @@ export class PlanningService {
         });
     }
 
-    createBaseline(name: string) {
+    createBaseline(name: string, createdAt?: Date) {
         const projectId = this.state().projectId;
         if (!projectId) return;
 
@@ -1693,11 +1769,42 @@ export class PlanningService {
                 // Normalize to UTC Midnight for accurate persistence
                 startDate: this.toApiDate(start),
                 finishDate: this.toApiDate(finish),
-                duration: activity.duration
+                duration: activity.duration,
+                percentComplete: Number(activity.percentComplete || 0),
+                actualStart: activity.actualStart ? this.toApiDate(activity.actualStart) : null,
+                actualFinish: activity.actualFinish ? this.toApiDate(activity.actualFinish) : null
             };
         });
 
-        this.apiService.createBaseline(projectId, name, baselineActivities).subscribe(newBaseline => {
+        console.log('📸 BASELINE CAPTURE - Sample Activity Data:');
+        const sampleWithActuals = baselineActivities.find(ba => {
+            const act = activities.find(a => a.id === ba.activityId);
+            return act && (act.percentComplete > 0 || act.actualStart);
+        });
+        if (sampleWithActuals) {
+            const relatedActivity = activities.find(a => a.id === sampleWithActuals.activityId);
+            console.log('  Activity:', relatedActivity?.name);
+            console.log('  Frontend State:', {
+                percentComplete: relatedActivity?.percentComplete,
+                actualStart: relatedActivity?.actualStart,
+                actualFinish: relatedActivity?.actualFinish
+            });
+            console.log('  Baseline Payload:', {
+                percentComplete: sampleWithActuals.percentComplete,
+                actualStart: sampleWithActuals.actualStart,
+                actualFinish: sampleWithActuals.actualFinish
+            });
+        } else {
+            console.log('  No activities with actuals found to capture');
+        }
+
+        const finalBaselineActivities = baselineActivities.map(ba => ({
+            ...ba
+        }));
+
+        console.log('📤 Sending to API:', finalBaselineActivities.length, 'activities');
+
+        this.apiService.createBaseline(projectId, name, createdAt, finalBaselineActivities).subscribe(newBaseline => {
             this.state.update(s => ({
                 ...s,
                 baselines: [...(s.baselines || []), { ...newBaseline, createdAt: new Date(newBaseline.createdAt) }]
@@ -1709,24 +1816,91 @@ export class PlanningService {
     }
 
     deleteBaseline(id: number) {
+        const isPrimary = this.state().baselines?.find(b => b.id === id)?.isPrimary;
+
         this.apiService.deleteBaseline(id).subscribe(success => {
             if (success) {
+                // 1. Remove from list
                 this.state.update(s => ({
                     ...s,
                     baselines: (s.baselines || []).filter(b => b.id !== id)
                 }));
+
+                // 2. If it was primary, we must UNAPPLY it (Clear actuals/progress)
+                if (isPrimary) {
+                    // Update Local State first
+                    this.state.update(s => ({
+                        ...s,
+                        activities: s.activities.map(a => ({
+                            ...a,
+                            baselineStartDate: undefined,
+                            baselineEndDate: undefined,
+                            actualStart: undefined,
+                            actualFinish: undefined,
+                            percentComplete: 0
+                        }))
+                    }));
+
+                    // Persist Clears to Backend
+                    const activities = this.state().activities;
+                    const updates = activities.map(a =>
+                        this.apiService.updateActivity(a.id, {
+                            ...a,
+                            actualStart: null,
+                            actualFinish: null,
+                            percentComplete: 0
+                        })
+                    );
+
+                    forkJoin(updates).subscribe(() => {
+                        if (this.state().projectId) {
+                            this.loadFullProject(this.state().projectId!).subscribe(() => {
+                                this.scheduleProject();
+                            });
+                        }
+                    });
+                }
             }
         });
     }
 
     setPrimaryBaseline(id: number) {
+        console.log('🎯 APPLYING BASELINE:', id);
         this.apiService.setPrimaryBaseline(id).subscribe(result => {
+            console.log('✅ Backend confirmed baseline set');
             // Reload project to update all activity baseline dates
             const projectId = this.state().projectId;
             if (projectId) {
                 this.loadFullProject(projectId).subscribe(() => {
+                    console.log('📊 PROJECT LOADED - Checking Activity State:');
+                    const activitiesWithActuals = this.state().activities.filter(a =>
+                        a.percentComplete > 0 || a.actualStart || a.actualFinish
+                    );
+                    console.log(`Found ${activitiesWithActuals.length} activities with actuals/progress`);
+                    activitiesWithActuals.forEach(a => {
+                        console.log(`  [${a.name}]:`, {
+                            percentComplete: a.percentComplete,
+                            actualStart: a.actualStart,
+                            actualFinish: a.actualFinish,
+                            actualStartType: typeof a.actualStart,
+                            actualFinishType: typeof a.actualFinish
+                        });
+                    });
+
                     // Automatically schedule after reload to ensure active bars align with baseline/actuals
                     this.scheduleProject();
+
+                    console.log('📊 AFTER SCHEDULE - Checking Activity State Again:');
+                    const activitiesAfterSchedule = this.state().activities.filter(a =>
+                        a.percentComplete > 0 || a.actualStart || a.actualFinish
+                    );
+                    activitiesAfterSchedule.forEach(a => {
+                        console.log(`  [${a.name}]:`, {
+                            percentComplete: a.percentComplete,
+                            actualStart: a.actualStart,
+                            actualFinish: a.actualFinish
+                        });
+                    });
                 });
             }
         });
@@ -1744,27 +1918,25 @@ export class PlanningService {
                 baselineStartDate: undefined,
                 baselineEndDate: undefined,
                 actualStart: undefined,
-                actualFinish: undefined
+                actualFinish: undefined,
+                percentComplete: 0 // Reset progress
             })),
             baselines: (s.baselines || []).map(b => ({ ...b, isPrimary: false }))
         }));
 
         this.apiService.clearPrimaryBaseline(projectId).subscribe(success => {
             if (success) {
-                // After clearing primary status, we must also persist the cleared actuals to the backend
-                // This is a batch update of activities.
+                // Persist the clear to backend
                 const activities = this.state().activities;
-
-                // Extra persist for actuals (backend might only clear isPrimary flag)
                 const updates = activities.map(a =>
                     this.apiService.updateActivity(a.id, {
                         ...a,
                         actualStart: null,
-                        actualFinish: null
+                        actualFinish: null,
+                        percentComplete: 0
                     })
                 );
 
-                // Wait for all updates, then reload and reschedule
                 forkJoin(updates).subscribe(() => {
                     this.loadFullProject(projectId).subscribe(() => {
                         this.scheduleProject();

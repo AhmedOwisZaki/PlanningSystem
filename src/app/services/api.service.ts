@@ -236,7 +236,7 @@ export class ApiService {
         );
     }
 
-    createBaseline(projectId: number, name: string, baselineActivities?: any[]): Observable<any> {
+    createBaseline(projectId: number, name: string, createdAt?: Date, baselineActivities?: any[]): Observable<any> {
         const query = `
             mutation($input: CreateBaselineInput!) {
                 createBaseline(input: $input) {
@@ -248,6 +248,9 @@ export class ApiService {
             }
         `;
         const input: any = { projectId, name };
+        if (createdAt) {
+            input.createdAt = createdAt.toISOString();
+        }
         if (baselineActivities) {
             input.baselineActivities = baselineActivities;
         }
@@ -873,6 +876,12 @@ export class ApiService {
                     baselineEndDate
                     actualStart
                     actualFinish
+                    earlyStart
+                    earlyFinish
+                    lateStart
+                    lateFinish
+                    totalFloat
+                    isCritical
                 }
             }
         `;
@@ -889,7 +898,13 @@ export class ApiService {
             baselineStartDate: activity.baselineStartDate,
             baselineEndDate: activity.baselineEndDate,
             actualStart: activity.actualStart,
-            actualFinish: activity.actualFinish
+            actualFinish: activity.actualFinish,
+            earlyStart: activity.earlyStart,
+            earlyFinish: activity.earlyFinish,
+            lateStart: activity.lateStart,
+            lateFinish: activity.lateFinish,
+            totalFloat: activity.totalFloat,
+            isCritical: activity.isCritical
         };
         return this.executeGraphQL(mutation, { input }).pipe(
             map(res => res.data.updateActivity),

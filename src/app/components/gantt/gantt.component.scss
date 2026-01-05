@@ -557,9 +557,22 @@
   cursor: help;
 }
 
+.baseline-vertical-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 2px dashed #fcc419;
+  /* Distinct yellow-orange */
+  z-index: 5;
+  /* Between grid and bars */
+  pointer-events: none;
+  opacity: 0.8;
+}
+
 .progress {
   height: 100%;
-  background: rgba(0, 0, 0, 0.15);
+  background: #0738db;
   display: block;
   border-radius: 4px;
 }

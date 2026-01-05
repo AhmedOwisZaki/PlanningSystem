@@ -82,14 +82,30 @@ export class GanttComponent {
   onBaseline(event: MouseEvent) {
     if (event.shiftKey) {
       if (confirm('Are you sure you want to clear the baseline?')) {
-        this.planningService.clearBaseline();
+        this.planningService.clearPrimaryBaseline();
       }
     } else {
-      const name = prompt('Enter a name for the new baseline:', `Baseline ${new Date().toLocaleDateString()}`);
-      if (name) {
-        this.planningService.createBaseline(name);
-      }
+      this.newBaselineName.set(`Baseline ${new Date().toLocaleDateString()}`);
+      this.newBaselineDate.set(new Date().toISOString().split('T')[0]);
+      this.showBaselineModal.set(true);
     }
+  }
+
+  saveBaseline() {
+    const name = this.newBaselineName();
+    const dateStr = this.newBaselineDate();
+    if (name) {
+      let customDate: Date | undefined = undefined;
+      if (dateStr) {
+        customDate = this.planningService.parseProjectDate(dateStr);
+      }
+      this.planningService.createBaseline(name, customDate);
+      this.closeBaselineModal();
+    }
+  }
+
+  closeBaselineModal() {
+    this.showBaselineModal.set(false);
   }
 
   onLevel(event: MouseEvent) {
@@ -236,9 +252,24 @@ export class GanttComponent {
   // Scroll Sync State
   timelineScrollX = signal(0);
 
+  // Baseline Modal State
+  showBaselineModal = signal(false);
+  newBaselineName = signal('');
+  newBaselineDate = signal('');
+
   isBaselineApplied = computed(() => {
     const state = this.projectState();
     return (state.baselines || []).some(b => b.isPrimary);
+  });
+
+  primaryBaseline = computed(() => {
+    return (this.projectState().baselines || []).find(b => b.isPrimary);
+  });
+
+  baselineLineLeft = computed(() => {
+    const bl = this.primaryBaseline();
+    if (!bl || !bl.createdAt) return null;
+    return this.getBaselineLeft(bl.createdAt);
   });
 
   // Computed timeline start date with 2-day buffer
@@ -535,6 +566,14 @@ export class GanttComponent {
     duration: 1,
     percentComplete: 0
   };
+
+  // Grid editing
+  editingPercentId = signal<number | null>(null);
+
+  onPercentCompleteEdit(activityId: number, val: number) {
+    this.planningService.updateActivityProgress(activityId, val);
+    this.editingPercentId.set(null);
+  }
 
   // Editor state
   isEditorVisible = false;

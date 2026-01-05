@@ -51,26 +51,45 @@
             <label>End Date:</label>
             <span>{{ getEndDate(selectedActivity()!) | date:'mediumDate' }}</span>
         </div>
+        <div class="status-group" style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+            <div class="detail-item" *ngIf="isBaselineApplied()">
+                <label>Progress (%):</label>
+                <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                    <input type="range" [ngModel]="selectedActivity()!.percentComplete"
+                        (ngModelChange)="onPercentCompleteChange($event)" min="0" max="100" step="1" style="flex: 1;">
+                    <input type="number" [ngModel]="selectedActivity()!.percentComplete"
+                        (ngModelChange)="onPercentCompleteChange($event)" min="0" max="100" class="form-control"
+                        style="width: 60px;">
+                </div>
+            </div>
+
+            <!-- Only show Actuals if Baseline is applied (Tracking Mode) -->
+            <ng-container *ngIf="isBaselineApplied()">
+                <div class="detail-item">
+                    <label>Actual Start:</label>
+                    <input type="date" [ngModel]="selectedActivity()!.actualStart | date:'yyyy-MM-dd'"
+                        (ngModelChange)="onActualStartChange($event)" class="form-control" placeholder="Not set">
+                </div>
+
+                <div class="detail-item" *ngIf="selectedActivity()!.percentComplete > 0">
+                    <label>Actual Finish:</label>
+                    <input type="date" [ngModel]="selectedActivity()!.actualFinish | date:'yyyy-MM-dd'"
+                        (ngModelChange)="onActualFinishChange($event)" class="form-control" placeholder="Not set">
+                </div>
+            </ng-container>
+        </div>
+
         <ng-container *ngIf="isBaselineApplied()">
-            <div class="detail-item">
-                <label>Actual Start:</label>
-                <input type="date" [ngModel]="selectedActivity()!.actualStart | date:'yyyy-MM-dd'"
-                    (ngModelChange)="onActualStartChange($event)" class="form-control" placeholder="Not set">
-            </div>
-            <div class="detail-item">
-                <label>Actual Finish:</label>
-                <input type="date" [ngModel]="selectedActivity()!.actualFinish | date:'yyyy-MM-dd'"
-                    (ngModelChange)="onActualFinishChange($event)" class="form-control" placeholder="Not set">
-            </div>
             <div class="detail-item">
                 <label>Baseline Start:</label>
                 <input type="date" [ngModel]="selectedActivity()!.baselineStartDate | date:'yyyy-MM-dd'"
-                    (ngModelChange)="onBaselineStartChange($event)" class="form-control" placeholder="Not set">
+                    (ngModelChange)="onBaselineStartChange($event)" class="form-control" placeholder="Not set" readonly>
             </div>
             <div class="detail-item">
                 <label>Baseline Finish:</label>
                 <input type="date" [ngModel]="selectedActivity()!.baselineEndDate | date:'yyyy-MM-dd'"
-                    (ngModelChange)="onBaselineFinishChange($event)" class="form-control" placeholder="Not set">
+                    (ngModelChange)="onBaselineFinishChange($event)" class="form-control" placeholder="Not set"
+                    readonly>
             </div>
             <div class="detail-item">
                 <label>Variance:</label>
@@ -79,10 +98,6 @@
                 </span>
             </div>
         </ng-container>
-        <div class="detail-item">
-            <label>Progress:</label>
-            <span>{{ selectedActivity()!.percentComplete }}%</span>
-        </div>
         <div class="detail-item">
             <label>ID:</label>
             <span>{{ selectedActivity()!.id }}</span>
