@@ -515,11 +515,8 @@
             </p>
 
             <div class="baseline-actions" style="display: flex; gap: 8px; margin-bottom: 20px;">
-                <input type="text" [(ngModel)]="newBaselineName" placeholder="Baseline Name (e.g. Revision 0)"
-                    class="form-control" style="flex: 1; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px;"
-                    (keyup.enter)="createBaseline()">
-                <button class="btn-add-feature" (click)="createBaseline()" [disabled]="!newBaselineName">
-                    Capture New Baseline
+                <button class="btn-add-feature" (click)="openCaptureBaselineModal()">
+                    📸 Capture New Baseline
                 </button>
                 <div style="flex: 1;"></div>
                 <button class="btn-action-small" (click)="unapplyBaselines()" *ngIf="primaryBaseline()"
@@ -589,6 +586,51 @@
         <div class="s-curves-content" (click)="$event.stopPropagation()">
             <button class="close-modal-btn" (click)="closeSCurves()">×</button>
             <app-s-curves-chart></app-s-curves-chart>
+        </div>
+    </div>
+
+    <!-- Capture Baseline Modal -->
+    <div class="s-curves-modal" *ngIf="showCaptureBaselineModal" (click)="closeCaptureBaselineModal()">
+        <div class="s-curves-content" (click)="$event.stopPropagation()"
+            style="max-width: 500px; padding: 25px; border: 1px solid #ced4da; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-radius: 8px;">
+            <button class="close-modal-btn" (click)="closeCaptureBaselineModal()"
+                style="display: flex; align-items: center; justify-content: center; padding: 4px; background: transparent; border: none; cursor: pointer; color: #666; border-radius: 50%;">
+                <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"
+                    fill="currentColor">
+                    <path
+                        d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
+                </svg>
+            </button>
+
+            <h3 style="margin-top: 0; color: #333;">Capture Schedule Snapshot</h3>
+            <p style="color: #666; font-size: 0.9rem; margin-bottom: 20px;">
+                Create a read-only snapshot of the current project state (Start, Finish dates, and current progress).
+            </p>
+
+            <div class="form-section">
+                <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9rem;">Baseline
+                    Name</label>
+                <input type="text" [(ngModel)]="newBaselineName" class="form-control"
+                    placeholder="e.g. Initial Plan, Design Freeze" autofocus>
+            </div>
+
+            <div class="form-section" style="margin-top: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9rem;">Capture
+                    Date</label>
+                <input type="datetime-local" [(ngModel)]="newBaselineDate" class="form-control">
+                <p class="hint" style="font-size: 0.8rem; color: #888; margin-top: 4px;">Defaults to current date/time
+                    if left blank.</p>
+            </div>
+
+            <div class="form-actions"
+                style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #eee; padding-top: 15px;">
+                <button class="btn-cancel" (click)="closeCaptureBaselineModal()"
+                    style="padding: 8px 16px;">Cancel</button>
+                <button class="btn-save" (click)="confirmCaptureBaseline()" [disabled]="!newBaselineName"
+                    style="padding: 8px 20px;">
+                    Capture Baseline
+                </button>
+            </div>
         </div>
     </div>
 </div>

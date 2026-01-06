@@ -56,6 +56,10 @@ export class EditorComponent {
     // S-Curves Modal
     showSCurves = signal(false);
 
+    // Capture Baseline Modal State
+    showCaptureBaselineModal = false;
+    newBaselineDate = ''; // YYYY-MM-DDTHH:mm string
+
     resourcesByType = computed(() => {
         const types = this.resourceTypes() || [];
         const allResources = this.resources() || [];
@@ -294,10 +298,28 @@ export class EditorComponent {
         }
     }
 
-    createBaseline() {
-        if (!this.newBaselineName) return;
-        this.planningService.createBaseline(this.newBaselineName);
+    // Baseline Modal Actions
+    openCaptureBaselineModal() {
+        this.newBaselineName = `Baseline ${this.baselines().length + 1}`;
+        // Set default to current local time in YYYY-MM-DDTHH:mm format
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        this.newBaselineDate = now.toISOString().slice(0, 16);
+        this.showCaptureBaselineModal = true;
+    }
+
+    closeCaptureBaselineModal() {
+        this.showCaptureBaselineModal = false;
         this.newBaselineName = '';
+        this.newBaselineDate = '';
+    }
+
+    confirmCaptureBaseline() {
+        if (!this.newBaselineName) return;
+
+        const date = this.newBaselineDate ? new Date(this.newBaselineDate) : new Date();
+        this.planningService.createBaseline(this.newBaselineName, date);
+        this.closeCaptureBaselineModal();
     }
 
     deleteBaseline(id: number) {
