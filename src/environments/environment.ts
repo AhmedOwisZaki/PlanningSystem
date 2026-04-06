@@ -1,4 +1,4 @@
 export const environment = {
     production: true,
-    apiUrl: 'https://localhost:7132/api'
+    apiUrl: 'https://planning-backend-production.up.railway.app/api'
 };
