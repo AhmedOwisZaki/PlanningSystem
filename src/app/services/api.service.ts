@@ -383,11 +383,40 @@ export class ApiService {
     }
 
     importParsedProject(projectDto: any): Observable<any> {
-        return this.http.post<any>(`${this.apiUrl}/projects/import`, projectDto)
-            .pipe(
-                tap(data => console.log('Imported Project Data:', data)),
-                catchError(this.handleError)
-            );
+        const query = `
+            mutation($input: ImportProjectInput!) {
+                importProject(input: $input) {
+                    id
+                    name
+                    startDate
+                    endDate
+                }
+            }
+        `;
+        const input = {
+            name: projectDto.name,
+            description: projectDto.description,
+            startDate: projectDto.startDate,
+            endDate: projectDto.endDate,
+            activities: projectDto.activities.map((a: any) => ({
+                name: a.name,
+                activityCode: a.activityCode,
+                startDate: a.startDate,
+                duration: a.duration,
+                percentComplete: a.percentComplete,
+                type: a.type
+            })),
+            dependencies: projectDto.dependencies.map((d: any) => ({
+                sourceActivityCode: d.sourceId.toString(), // The parser uses ID as Code
+                targetActivityCode: d.targetId.toString(),
+                type: d.type,
+                lag: d.lag
+            }))
+        };
+        return this.executeGraphQL(query, { input }).pipe(
+            map(res => res.data.importProject),
+            tap(data => console.log('Imported Project via GraphQL:', data))
+        );
     }
 
     exportXER(projectId: number): Observable<Blob> {

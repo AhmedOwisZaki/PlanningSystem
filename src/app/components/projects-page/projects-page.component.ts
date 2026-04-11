@@ -161,8 +161,13 @@ export class ProjectsPageComponent {
                 this.projects.set(loadedProjects);
             },
             error: (error) => {
-                console.error('Failed to load projects from API:', error);
-                alert('Failed to load projects. Please check your connection to the backend.');
+                // Log the error but don't show a blocking alert for new accounts
+                console.warn('Project loading state:', error);
+                
+                // If it's a 401, redirect to welcome
+                if (error.status === 401) {
+                    this.authService.logout();
+                }
             }
         });
     }
