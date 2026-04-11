@@ -118,7 +118,7 @@ export class WelcomeComponent {
         const userData = {
             FirstName: this.signupFirstName,
             LastName: this.signupLastName,
-            UserName: this.signupUsername,
+            Username: this.signupUsername,
             Email: this.signupEmail,
             Password: this.signupPassword
         };
