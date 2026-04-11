@@ -67,7 +67,7 @@ export class ApiService {
     // ==================== AUTH ====================
 
     login(credentials: any): Observable<any> {
-        return this.http.post<any>(`${this.apiUrl}/Account/login`, credentials)
+        return this.http.post<any>(`${this.apiUrl}/Auth/login`, credentials)
             .pipe(
                 tap(data => console.log('Login successful:', data)),
                 catchError(this.handleError)
@@ -75,7 +75,7 @@ export class ApiService {
     }
 
     register(userData: any): Observable<any> {
-        return this.http.post<any>(`${this.apiUrl}/Account/register`, userData)
+        return this.http.post<any>(`${this.apiUrl}/Auth/register`, userData)
             .pipe(
                 tap(data => console.log('Registration successful:', data)),
                 catchError(this.handleError)
