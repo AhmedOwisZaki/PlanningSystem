@@ -1612,8 +1612,6 @@ export class PlanningService {
 
     isParent(activityId: number): boolean {
         const activities = this.state().activities;
-        const act = activities.find(a => a.id == activityId);
-        if (act?.type === 'WBS') return true;
         return activities.some(a => a.parentId == activityId);
     }
 

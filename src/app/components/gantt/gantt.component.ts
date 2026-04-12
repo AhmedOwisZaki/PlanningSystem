@@ -465,7 +465,8 @@ export class GanttComponent {
     for (const dep of dependencies) {
       const source = activities.find(a => a.id === dep.sourceId);
       const target = activities.find(a => a.id === dep.targetId);
-      if (source && target) {
+      // Skip dependencies connected to WBS nodes - standard CPM practice
+      if (source && target && !this.isParentActivity(source) && !this.isParentActivity(target)) {
         const sourceIdx = activities.indexOf(source);
         const targetIdx = activities.indexOf(target);
 
