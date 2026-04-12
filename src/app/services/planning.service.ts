@@ -965,8 +965,8 @@ export class PlanningService {
                 }
             }
 
-            // PRIORITIZE ACTUALS: If actualStart exists, override earlyStart (ONLY if baseline is applied)
-            if (isBaselineApplied && act.actualStart) {
+            // PRIORITIZE ACTUALS: If actualStart exists and work has started, override earlyStart
+            if (act.percentComplete > 0 && act.actualStart) {
                 earlyStart = new Date(act.actualStart);
             }
 
@@ -976,8 +976,8 @@ export class PlanningService {
             const standardFinish = this.addWorkDays(earlyStart, act.duration, calendar);
             let earlyFinish = (minEarlyFinish && minEarlyFinish.getTime() > standardFinish.getTime()) ? minEarlyFinish : standardFinish;
 
-            // PRIORITIZE ACTUALS: If actualFinish exists, override earlyFinish (ONLY if baseline is applied)
-            if (isBaselineApplied && act.actualFinish) {
+            // PRIORITIZE ACTUALS: If actualFinish exists and work is completed, override earlyFinish
+            if (act.percentComplete === 100 && act.actualFinish) {
                 earlyFinish = new Date(act.actualFinish);
             }
             act.earlyFinish = earlyFinish;
